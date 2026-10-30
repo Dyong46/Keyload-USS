@@ -110,10 +110,10 @@ npm run typecheck
 npm run build -- --webpack
 ```
 
-Current recorded evidence (30 October 2026):
+Current recorded evidence (31 October 2026):
 
-- Backend unit tests: 19 passing.
-- Backend HTTP e2e tests: 3 passing.
+- Backend unit tests: 18 passing.
+- Backend HTTP e2e tests: 2 passing.
 - PostgreSQL integration tests: 32 passing, including concurrent booking/replay and cancel-versus-complete races.
 - Backend and frontend lint, type checks, and production builds: passing.
 - OpenAPI YAML parsing: passing.
@@ -131,14 +131,14 @@ Not yet claimed: automated frontend component/E2E coverage, a fresh-checkout reh
 
 ## API summary
 
-| Area | Endpoints |
-|---|---|
-| Health | `GET /health` |
-| Customers/vehicles | `GET/POST /customers`, `PATCH /customers/{id}`, `GET/POST /customers/{id}/vehicles` |
-| Reference data | `GET /dealerships`, `GET/POST /service-types`, `PATCH /service-types/{id}` |
-| Technicians | `GET/POST /technicians`, `PATCH /technicians/{id}`, `PUT/DELETE /technicians/{id}/service-types/{serviceTypeId}` |
-| Scheduling | `GET /availability`, `GET/POST /appointments`, `GET /appointments/{id}` |
-| Lifecycle | `POST /appointments/{id}/cancel`, `POST /appointments/{id}/complete` |
+| Area               | Endpoints                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Health             | `GET /health`                                                                                                    |
+| Customers/vehicles | `GET/POST /customers`, `PATCH /customers/{id}`, `GET/POST /customers/{id}/vehicles`                              |
+| Reference data     | `GET /dealerships`, `GET/POST /service-types`, `PATCH /service-types/{id}`                                       |
+| Technicians        | `GET/POST /technicians`, `PATCH /technicians/{id}`, `PUT/DELETE /technicians/{id}/service-types/{serviceTypeId}` |
+| Scheduling         | `GET /availability`, `GET/POST /appointments`, `GET /appointments/{id}`                                          |
+| Lifecycle          | `POST /appointments/{id}/cancel`, `POST /appointments/{id}/complete`                                             |
 
 See [OpenAPI](docs/openapi.yaml) for request/response schemas and errors.
 

@@ -1,7 +1,7 @@
 # AI Collaboration Evidence
 
 **Project:** Unified Service Scheduler  
-**Updated:** 30 October 2026  
+**Updated:** 31 October 2026
 **Status:** Design and implementation collaboration recorded; final manual submission checks remain
 
 ## 1. Ownership
@@ -12,18 +12,18 @@ GenAI helped clarify, design, implement, refactor, test, and document the soluti
 
 ## 2. Human decisions that changed AI proposals
 
-| Topic | Proposal or ambiguity | Owner decision reflected in the solution |
-|---|---|---|
-| Qualification model | A separate Skill entity was considered | Direct Technician–ServiceType association. |
-| User identity | Authentication was considered | One predefined demo staff member; auth outside scope. |
-| Booking services | Earlier scope assumed one service | One or more sequential services; one technician covers all; durations are summed. |
-| Resource assignment | Fully automatic assignment | Stable automatic suggestion plus staff selection among eligible alternatives. |
-| Service execution | Manual Start/IN_PROGRESS was considered | No Start action; scheduled time defines execution; explicit completion releases early. |
-| Confirmation delay | Unlimited delay after selecting a slot was discussed | Confirm through start + 15 minutes inclusive; later requests fail. |
-| Repeated cancellation | Error was considered | Return the existing CANCELLED appointment unchanged. |
-| UI structure | Decorative wizard/dropdowns | Staff-first tables/search, separate booking route, and scalable customer lookup. |
-| Booking success | Dedicated confirmation page | Loading toast becomes success/error and returns to appointment list. |
-| Logging | A custom logger was initially introduced | Standard NestJS Logger with structured domain-event objects. |
+| Topic                 | Proposal or ambiguity                                | Owner decision reflected in the solution                                               |
+| --------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Qualification model   | A separate Skill entity was considered               | Direct Technician–ServiceType association.                                             |
+| User identity         | Authentication was considered                        | One predefined demo staff member; auth outside scope.                                  |
+| Booking services      | Earlier scope assumed one service                    | One or more sequential services; one technician covers all; durations are summed.      |
+| Resource assignment   | Fully automatic assignment                           | Stable automatic suggestion plus staff selection among eligible alternatives.          |
+| Service execution     | Manual Start/IN_PROGRESS was considered              | No Start action; scheduled time defines execution; explicit completion releases early. |
+| Confirmation delay    | Unlimited delay after selecting a slot was discussed | Confirm through start + 15 minutes inclusive; later requests fail.                     |
+| Repeated cancellation | Error was considered                                 | Return the existing CANCELLED appointment unchanged.                                   |
+| UI structure          | Decorative wizard/dropdowns                          | Staff-first tables/search, separate booking route, and scalable customer lookup.       |
+| Booking success       | Dedicated confirmation page                          | Loading toast becomes success/error and returns to appointment list.                   |
+| Logging               | A custom logger was initially introduced             | Standard NestJS Logger with structured domain-event objects.                           |
 
 ## 3. AI-assisted design work
 
@@ -50,15 +50,15 @@ The project owner continuously reviewed usability and scope. Examples include re
 
 ## 5. Concrete corrections discovered during work
 
-| Issue | Evidence and correction |
-|---|---|
-| Migration ordering | An empty migration directory caused Prisma P3015. It was removed; migrations were then applied first to the isolated test database and then development. |
-| Customer lookup scalability | Loading all customers/dropdowns was replaced with debounced server lookup, a 10-result cap, normalized phone/registration search, and PostgreSQL prefix indexes. |
-| Already-applied migration safety | Lookup indexes were moved into a new migration rather than modifying the previously applied customer migration. |
-| Service selection usability | A long select control was replaced by a searchable compact table supporting multiple services. |
-| New services without qualifications | Technician management gained qualification attach/detach and technician creation with initial service IDs. |
-| Booking completion UX | The standalone confirmation screen was removed in favor of a loading/success/error toast and redirect. |
-| API/document drift | OpenAPI was updated before new customer/service/technician endpoints, then runtime implementation and integration tests were added. |
+| Issue                               | Evidence and correction                                                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration ordering                  | An empty migration directory caused Prisma P3015. It was removed; migrations were then applied first to the isolated test database and then development.         |
+| Customer lookup scalability         | Loading all customers/dropdowns was replaced with debounced server lookup, a 10-result cap, normalized phone/registration search, and PostgreSQL prefix indexes. |
+| Already-applied migration safety    | Lookup indexes were moved into a new migration rather than modifying the previously applied customer migration.                                                  |
+| Service selection usability         | A long select control was replaced by a searchable compact table supporting multiple services.                                                                   |
+| New services without qualifications | Technician management gained qualification attach/detach and technician creation with initial service IDs.                                                       |
+| Booking completion UX               | The standalone confirmation screen was removed in favor of a loading/success/error toast and redirect.                                                           |
+| API/document drift                  | OpenAPI was updated before new customer/service/technician endpoints, then runtime implementation and integration tests were added.                              |
 
 These are observed changes from the working session, not reconstructed examples.
 
@@ -66,8 +66,8 @@ These are observed changes from the working session, not reconstructed examples.
 
 Recorded results on 30 October 2026:
 
-- 19 backend unit tests passing.
-- 3 backend HTTP e2e tests passing.
+- 18 backend unit tests passing.
+- 2 backend HTTP e2e tests passing.
 - 32 real-PostgreSQL integration tests passing.
 - Integration coverage includes availability, no-common-technician, booking replay/mismatch, concurrent same-key requests, conflicting resource allocation, appointment reads, lifecycle transitions, cancel-versus-complete, customer/service management, and technician qualification management.
 - Backend and frontend lint/typecheck/build commands passing.

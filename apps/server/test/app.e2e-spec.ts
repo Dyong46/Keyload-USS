@@ -6,7 +6,7 @@ import { configureApp } from '../src/common/configure-app.js';
 import { DatabaseService } from '../src/database/database.service.js';
 import { PrismaService } from '../src/database/prisma.service.js';
 
-describe('AppController (e2e)', () => {
+describe('Application HTTP (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
@@ -22,13 +22,6 @@ describe('AppController (e2e)', () => {
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
-  });
-
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
   });
 
   it('/health (GET) reports database readiness and demo identity', async () => {
@@ -49,10 +42,10 @@ describe('AppController (e2e)', () => {
     });
   });
 
-  it('returns the standard error envelope and preserves a valid request ID', async () => {
+  it('does not expose a starter root endpoint and preserves a valid request ID', async () => {
     const requestId = '11111111-1111-4111-8111-111111111111';
     const response = await request(app.getHttpServer())
-      .get('/missing')
+      .get('/')
       .set('X-Request-Id', requestId)
       .expect(404);
 
@@ -60,7 +53,7 @@ describe('AppController (e2e)', () => {
     expect(response.body).toEqual({
       statusCode: 404,
       code: 'HTTP_ERROR',
-      message: 'Cannot GET /missing',
+      message: 'Cannot GET /',
       requestId,
     });
   });

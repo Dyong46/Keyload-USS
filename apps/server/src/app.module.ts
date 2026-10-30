@@ -1,7 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AvailabilityModule } from './availability/availability.module.js';
 import { AppointmentModule } from './appointments/appointment.module.js';
 import { RequestContextMiddleware } from './common/request-context.middleware.js';
@@ -21,8 +19,6 @@ import { TechnicianModule } from './technicians/technician.module.js';
     AvailabilityModule,
     AppointmentModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

@@ -1,7 +1,7 @@
 # Unified Service Scheduler — System Design
 
 **Scenario:** A — Service Scheduler  
-**Updated:** 30 October 2026  
+**Updated:** 31 October 2026
 **Status:** Implemented assessment solution  
 **Requirements:** [PRD v1.5](PRD.md)  
 **Interface:** [OpenAPI](openapi.yaml)
@@ -44,18 +44,18 @@ This is a modular monolith. Splitting a short assessment into distributed servic
 
 ## 3. Component responsibilities
 
-| Component | Responsibility |
-|---|---|
-| Next.js frontend | Staff booking workspace, appointment table, customer/service/technician administration, loading/error/empty states, and same-origin backend access. |
-| TanStack Query | Browser-side server state, request cancellation, cache invalidation after mutations, and reusable query keys. |
-| React Hook Form + Zod | Interactive form state and immediate client feedback. Backend validation remains authoritative. |
-| NestJS common layer | Global validation, consistent error envelopes, request correlation IDs, demo staff context, and Swagger UI. |
-| ReferenceDataModule | Customer lookup/create/update, customer vehicles, dealerships, and service-type management. |
-| TechnicianModule | Technician list/create/update and idempotent qualification attach/detach. |
-| AvailabilityModule | Read-only eligible starts and resource alternatives for a vehicle, dealership, date, and service set. |
-| AppointmentModule | Booking/replay, list/detail reads, cancellation, completion, and lifecycle rules. |
-| Prisma | Typed persistence and transaction boundary. |
-| PostgreSQL | Durable records, relational integrity, serializable transactions, unique request identity, and exclusion constraints preventing overlaps. |
+| Component             | Responsibility                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Next.js frontend      | Staff booking workspace, appointment table, customer/service/technician administration, loading/error/empty states, and same-origin backend access. |
+| TanStack Query        | Browser-side server state, request cancellation, cache invalidation after mutations, and reusable query keys.                                       |
+| React Hook Form + Zod | Interactive form state and immediate client feedback. Backend validation remains authoritative.                                                     |
+| NestJS common layer   | Global validation, consistent error envelopes, request correlation IDs, demo staff context, and Swagger UI.                                         |
+| ReferenceDataModule   | Customer lookup/create/update, customer vehicles, dealerships, and service-type management.                                                         |
+| TechnicianModule      | Technician list/create/update and idempotent qualification attach/detach.                                                                           |
+| AvailabilityModule    | Read-only eligible starts and resource alternatives for a vehicle, dealership, date, and service set.                                               |
+| AppointmentModule     | Booking/replay, list/detail reads, cancellation, completion, and lifecycle rules.                                                                   |
+| Prisma                | Typed persistence and transaction boundary.                                                                                                         |
+| PostgreSQL            | Durable records, relational integrity, serializable transactions, unique request identity, and exclusion constraints preventing overlaps.           |
 
 The browser never decides whether a resource is valid or available. It displays backend results and sends the selected IDs for final validation.
 
@@ -146,42 +146,42 @@ Two rows cannot overlap for the same technician, bay, or vehicle. Half-open rang
 
 Appointments use `CONFIRMED`, `CANCELLED`, or `COMPLETED`; there is no manual Start action.
 
-| State | Effective `occupancy_end` |
-|---|---|
-| CONFIRMED | Scheduled end |
-| CANCELLED before start | Scheduled start (empty interval) |
-| CANCELLED after start | Cancellation time, capped to scheduled interval |
-| COMPLETED early | Actual completion time |
-| COMPLETED at/after scheduled end | Scheduled end |
+| State                            | Effective `occupancy_end`                       |
+| -------------------------------- | ----------------------------------------------- |
+| CONFIRMED                        | Scheduled end                                   |
+| CANCELLED before start           | Scheduled start (empty interval)                |
+| CANCELLED after start            | Cancellation time, capped to scheduled interval |
+| COMPLETED early                  | Actual completion time                          |
+| COMPLETED at/after scheduled end | Scheduled end                                   |
 
 Cancellation is idempotent. Completion before start or from CANCELLED is rejected, and repeated completion returns “Appointment already completed.” Row locking serializes concurrent cancel/complete attempts. Existing confirmed appointments remain valid if a technician qualification is later removed.
 
 ## 9. HTTP interface
 
-| Area | Operations |
-|---|---|
-| Health | Readiness and demo staff identity |
-| Customers | Capped prefix lookup; create/update; list/create owned vehicles |
-| Service types | List/create/update fixed-duration services |
-| Technicians | List/filter; create/update; attach/detach qualifications |
-| Availability | Eligible starts, alternatives, and duration summary |
-| Appointments | Create/replay, list/search/filter/page, detail |
-| Lifecycle | Cancel and complete |
+| Area          | Operations                                                      |
+| ------------- | --------------------------------------------------------------- |
+| Health        | Readiness and demo staff identity                               |
+| Customers     | Capped prefix lookup; create/update; list/create owned vehicles |
+| Service types | List/create/update fixed-duration services                      |
+| Technicians   | List/filter; create/update; attach/detach qualifications        |
+| Availability  | Eligible starts, alternatives, and duration summary             |
+| Appointments  | Create/replay, list/search/filter/page, detail                  |
+| Lifecycle     | Cancel and complete                                             |
 
 The checked-in [OpenAPI contract](openapi.yaml) is the detailed interface source. Runtime Swagger UI is available at `/docs`. Backend paths do not include the frontend `/api` proxy prefix.
 
 ## 10. Technology choices
 
-| Technology | Reason and trade-off |
-|---|---|
-| NestJS + TypeScript | Clear modules, DTO validation, dependency injection, and Swagger support. More ceremony than a minimal HTTP framework, but useful for an assessment design discussion. |
-| Next.js App Router | Fast implementation of separate staff pages with a server/client component boundary and same-origin proxy. |
-| shadcn/Base UI + Tailwind | Accessible primitives and quick functional UI without a custom design system. |
-| TanStack Query | Server-state caching and mutation invalidation without introducing Redux/Zustand. |
-| PostgreSQL 17 | Transactions, range types, exclusion constraints, and relational integrity directly fit resource scheduling. |
-| Prisma 7 | Typed access and repeatable migrations; reviewed SQL supplements features Prisma schema cannot express. |
-| Docker Compose | Reproducible local development/test databases; it is not a production deployment design. |
-| Vitest + Supertest | Fast unit/HTTP testing and real-PostgreSQL integration coverage. |
+| Technology                | Reason and trade-off                                                                                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NestJS + TypeScript       | Clear modules, DTO validation, dependency injection, and Swagger support. More ceremony than a minimal HTTP framework, but useful for an assessment design discussion. |
+| Next.js App Router        | Fast implementation of separate staff pages with a server/client component boundary and same-origin proxy.                                                             |
+| shadcn/Base UI + Tailwind | Accessible primitives and quick functional UI without a custom design system.                                                                                          |
+| TanStack Query            | Server-state caching and mutation invalidation without introducing Redux/Zustand.                                                                                      |
+| PostgreSQL 17             | Transactions, range types, exclusion constraints, and relational integrity directly fit resource scheduling.                                                           |
+| Prisma 7                  | Typed access and repeatable migrations; reviewed SQL supplements features Prisma schema cannot express.                                                                |
+| Docker Compose            | Reproducible local development/test databases; it is not a production deployment design.                                                                               |
+| Vitest + Supertest        | Fast unit/HTTP testing and real-PostgreSQL integration coverage.                                                                                                       |
 
 The Compose definition is colocated with the backend at `apps/server/compose.yaml`. Its sibling `.env` supplies both Compose database variables and the backend `DATABASE_URL`; `.env.test` supplies the guarded test connection URL.
 
@@ -211,15 +211,15 @@ Not implemented for this local demo: metrics exporter, tracing backend, dashboar
 
 Recorded on 30 October 2026:
 
-| Check | Evidence |
-|---|---|
-| Unit behavior | 19 backend unit tests passing |
-| HTTP application behavior | 3 backend e2e tests passing |
-| HTTP/database behavior | 32 integration tests across availability, booking/replay, reads, lifecycle, reference data, and technician management |
-| Concurrency | Concurrent same-key booking, conflicting allocation, and cancel-versus-complete tests pass against PostgreSQL |
-| Static checks | Backend/frontend lint and TypeScript checks pass |
-| Packaging | NestJS and Next.js production builds pass |
-| Contract syntax | OpenAPI YAML parses successfully |
+| Check                     | Evidence                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Unit behavior             | 18 backend unit tests passing                                                                                         |
+| HTTP application behavior | 2 backend e2e tests passing                                                                                           |
+| HTTP/database behavior    | 32 integration tests across availability, booking/replay, reads, lifecycle, reference data, and technician management |
+| Concurrency               | Concurrent same-key booking, conflicting allocation, and cancel-versus-complete tests pass against PostgreSQL         |
+| Static checks             | Backend/frontend lint and TypeScript checks pass                                                                      |
+| Packaging                 | NestJS and Next.js production builds pass                                                                             |
+| Contract syntax           | OpenAPI YAML parses successfully                                                                                      |
 
 Known verification gaps: no automated frontend test suite, no measured load test, and no recorded fresh-checkout rehearsal on another machine.
 

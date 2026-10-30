@@ -41,4 +41,4 @@ npm run build
 
 See the repository [README](../../README.md) for the isolated test database workflow. The test database guard accepts only `uss_test` on `localhost:5433`; do not point `.env.test` to the development database.
 
-Recorded on 30 October 2026: 19 unit tests, 3 HTTP e2e tests, and 32 PostgreSQL integration tests passed. Rerun all commands above before submission rather than relying only on this recorded result.
+Recorded on 31 October 2026: 18 unit tests, 2 HTTP e2e tests, and 32 PostgreSQL integration tests passed. Rerun all commands above before submission rather than relying only on this recorded result.
