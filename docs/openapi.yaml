@@ -1,0 +1,1881 @@
+# Reviewed contract for the implemented local assessment API.
+openapi: 3.0.3
+info:
+  title: Unified Service Scheduler API
+  version: 1.2.0
+  description: Implemented contract for Keyloop Scenario A, aligned with PRD v1.5 and
+    system-design.md. All examples use synthetic identifiers and data; they are not
+    guaranteed to be existing seed records. This local demo has no authentication.
+    Backend paths exclude the frontend /api proxy prefix.
+  x-status: implemented
+servers:
+  - url: http://localhost:8000
+    description: Local NestJS backend
+  - url: http://localhost:3000/api
+    description: Same-origin Next.js proxy
+tags:
+  - name: Health
+    description: Development readiness information.
+  - name: Reference data
+    description: Customer, vehicle, dealership, and service-type data.
+  - name: Technicians
+    description: Technician details and service qualifications.
+  - name: Availability
+    description: Resource-constrained slots; never reservations.
+  - name: Appointments
+    description: Atomic booking, replay, reads, cancellation, completion.
+security: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check API and database readiness
+      tags:
+        - Health
+      responses:
+        "200":
+          description: API and database are ready.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                database: up
+                timestamp: 2026-10-29T08:00:00Z
+                demoStaff:
+                  id: 00000000-0000-4000-8000-000000000001
+                  displayName: Demo Dealership Staff
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: Search customers
+      tags:
+        - Reference data
+      description: Search by customer name, normalized phone, or normalized vehicle registration.
+        Results are ordered and capped so clients never load the full customer table.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: Up to limit matching customers.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+              examples:
+                demo:
+                  summary: Seeded customer
+                  value:
+                    - id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                      phone: "+84912345678"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createCustomer
+      summary: Create a customer
+      tags:
+        - Reference data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerRequest"
+      responses:
+        "201":
+          description: Customer created with normalized phone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /customers/{id}/vehicles:
+    get:
+      operationId: listCustomerVehicles
+      summary: List customer vehicles
+      tags:
+        - Reference data
+      description: Returns only vehicles owned by this customer. Existing customer with no vehicles
+        returns an empty array.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Record identifier.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Vehicles belonging to the customer.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vehicle"
+              examples:
+                demo:
+                  summary: Owned vehicle
+                  value:
+                    - id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createCustomerVehicle
+      summary: Add a vehicle owned by a customer
+      tags:
+        - Reference data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVehicleRequest"
+      responses:
+        "201":
+          description: Vehicle created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /customers/{id}:
+    patch:
+      operationId: updateCustomer
+      summary: Update a customer
+      tags:
+        - Reference data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomerRequest"
+      responses:
+        "200":
+          description: Customer updated. Phone is returned in normalized form.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /dealerships:
+    get:
+      operationId: listDealerships
+      summary: List sample dealerships
+      tags:
+        - Reference data
+      description: All dealerships use the shared daily hours and Vietnam timezone.
+      responses:
+        "200":
+          description: All configured dealerships.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dealership"
+              examples:
+                demo:
+                  summary: Sample dealership
+                  value:
+                    - id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /service-types:
+    get:
+      operationId: listServiceTypes
+      summary: List service types
+      tags:
+        - Reference data
+      description: Fixed positive durations; the client cannot override them.
+      responses:
+        "200":
+          description: All configured service types.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceType"
+              examples:
+                demo:
+                  summary: Service types
+                  value:
+                    - id: 00000004-0000-4000-8000-000000000004
+                      name: Oil change
+                      durationMinutes: 30
+                    - id: 00000005-0000-4000-8000-000000000005
+                      name: Tire service
+                      durationMinutes: 60
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createServiceType
+      summary: Create a service type
+      tags:
+        - Reference data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceTypeRequest"
+      responses:
+        "201":
+          description: Service type created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceType"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /service-types/{id}:
+    patch:
+      operationId: updateServiceType
+      summary: Update a service type
+      description: Existing appointments keep their service name and duration snapshots.
+      tags:
+        - Reference data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceTypeRequest"
+      responses:
+        "200":
+          description: Service type updated for future bookings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceType"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /technicians:
+    get:
+      operationId: listTechnicians
+      summary: List technicians and their service qualifications
+      tags:
+        - Technicians
+      parameters:
+        - name: dealershipId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Technicians ordered by dealership and stable technician ID.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TechnicianManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: createTechnician
+      summary: Create a technician with optional service qualifications
+      tags:
+        - Technicians
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTechnicianRequest"
+      responses:
+        "201":
+          description: Technician created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /technicians/{id}:
+    patch:
+      operationId: updateTechnician
+      summary: Update a technician
+      tags:
+        - Technicians
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTechnicianRequest"
+      responses:
+        "200":
+          description: Technician updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /technicians/{id}/service-types/{serviceTypeId}:
+    put:
+      operationId: attachTechnicianServiceType
+      summary: Attach a service qualification to a technician
+      tags:
+        - Technicians
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: serviceTypeId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Qualification attached, or returned unchanged if already attached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: detachTechnicianServiceType
+      summary: Detach a service qualification from a technician
+      description: Existing confirmed appointments remain unchanged; qualification affects future allocation.
+      tags:
+        - Technicians
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: serviceTypeId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Qualification detached, or returned unchanged if already absent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /availability:
+    get:
+      operationId: getAvailability
+      summary: Find eligible starts and resources
+      tags:
+        - Availability
+      description: "Read-only consistent snapshot, not a hold. Candidate starts are every 30 minutes,
+        daily 08:00–17:00 Asia/Ho_Chi_Minh. Exclude past starts and intervals ending after closing.
+        The single technician must support all services; vehicle conflicts span dealerships.
+        Cancellation/completion retain occupied history while releasing the remainder. No capacity
+        or no common technician returns 200 with slots: []."
+      parameters:
+        - name: dealershipId
+          in: query
+          required: true
+          description: Selected dealership.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: vehicleId
+          in: query
+          required: true
+          description: Vehicle to check across all dealerships.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: serviceIds
+          in: query
+          required: true
+          description: "Repeat the query key: serviceIds=id1&serviceIds=id2."
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Uuid"
+            minItems: 1
+            uniqueItems: true
+          style: form
+          explode: true
+        - name: date
+          in: query
+          required: true
+          description: Requested Vietnam business date.
+          schema:
+            $ref: "#/components/schemas/BusinessDate"
+      responses:
+        "200":
+          description: Available starts with eligible alternatives in ascending ID order.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+            Cache-Control:
+              description: Availability is a fresh snapshot.
+              schema:
+                type: string
+                enum:
+                  - no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityResponse"
+              examples:
+                available:
+                  summary: Two services totaling 90 minutes; resource alternatives
+                  value:
+                    dealershipId: 00000003-0000-4000-8000-000000000003
+                    vehicleId: 00000002-0000-4000-8000-000000000002
+                    date: 2026-11-02
+                    timeZone: Asia/Ho_Chi_Minh
+                    generatedAt: 2026-11-01T05:00:00Z
+                    services:
+                      - id: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - id: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    slots:
+                      - scheduledStart: 2026-11-02T02:00:00Z
+                        scheduledEnd: 2026-11-02T03:30:00Z
+                        technicians:
+                          - id: 00000006-0000-4000-8000-000000000006
+                            name: Demo Technician A
+                            dealershipId: 00000003-0000-4000-8000-000000000003
+                          - id: 00000007-0000-4000-8000-000000000007
+                            name: Demo Technician B
+                            dealershipId: 00000003-0000-4000-8000-000000000003
+                        serviceBays:
+                          - id: 00000008-0000-4000-8000-000000000008
+                            label: Bay A
+                            dealershipId: 00000003-0000-4000-8000-000000000003
+                          - id: 00000009-0000-4000-8000-000000000009
+                            label: Bay B
+                            dealershipId: 00000003-0000-4000-8000-000000000003
+                        suggestedTechnicianId: 00000006-0000-4000-8000-000000000006
+                        suggestedServiceBayId: 00000008-0000-4000-8000-000000000008
+                noCapacity:
+                  summary: No capacity or no common technician
+                  value:
+                    dealershipId: 00000003-0000-4000-8000-000000000003
+                    vehicleId: 00000002-0000-4000-8000-000000000002
+                    date: 2026-11-02
+                    timeZone: Asia/Ho_Chi_Minh
+                    generatedAt: 2026-11-01T05:00:00Z
+                    services:
+                      - id: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - id: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    slots: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /appointments:
+    post:
+      operationId: createAppointment
+      summary: Confirm or replay a booking
+      tags:
+        - Appointments
+      description: Requires Idempotency-Key (UUID). A new request rechecks the exact selected resources,
+        ownership, qualification, hours, and full original interval atomically. Confirmation at
+        scheduledStart + 15 minutes is allowed; later is 409. Scheduled start/end do not shift.
+        Matching committed key and canonical content returns 200 with the current appointment, even
+        after the time allowance or lifecycle changes; changed content is 409. Canonicalization
+        sorts distinct service IDs, normalizes UUID casing and the start instant, and ignores JSON
+        property order. Retain successful keys for the lifetime of their appointments. Concurrent
+        copies create at most one appointment. Failed transactions do not persist successful replay
+        records.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-generated UUID for this booking operation. Preserve on uncertain retries;
+            changed booking intent uses a new key.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppointmentRequest"
+            examples:
+              multiService:
+                summary: One customer/vehicle/technician/bay, two sequential services
+                value:
+                  customerId: 00000001-0000-4000-8000-000000000001
+                  vehicleId: 00000002-0000-4000-8000-000000000002
+                  dealershipId: 00000003-0000-4000-8000-000000000003
+                  serviceIds:
+                    - 00000004-0000-4000-8000-000000000004
+                    - 00000005-0000-4000-8000-000000000005
+                  scheduledStart: 2026-11-02T09:00:00+07:00
+                  technicianId: 00000006-0000-4000-8000-000000000006
+                  serviceBayId: 00000008-0000-4000-8000-000000000008
+      responses:
+        "200":
+          description: "Committed request replay: same appointment, current state, no new allocation."
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+              examples:
+                replayed:
+                  summary: Unchanged confirmed booking
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: CONFIRMED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-01T05:00:00Z
+                    cancelledAt: null
+                    actualCompletedAt: null
+                cancelledReplay:
+                  summary: Retry after cancellation returns current state
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: CANCELLED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-02T01:30:00Z
+                    cancelledAt: 2026-11-02T01:30:00Z
+                    actualCompletedAt: null
+        "201":
+          description: Newly created, immediately confirmed appointment.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+              examples:
+                created:
+                  summary: Confirmed 90-minute booking
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: CONFIRMED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-01T05:00:00Z
+                    cancelledAt: null
+                    actualCompletedAt: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: listAppointments
+      summary: Search and paginate appointments
+      tags:
+        - Appointments
+      description: "Combine filters with AND. A single search string matches part of customer name,
+        normalized phone, OR registration number, case-insensitively. No accent-folding is
+        promised. Filter/search first, then scheduledStart ascending and id ascending, then
+        pagination. date is scheduled service day in Asia/Ho_Chi_Minh. Defaults: page=1,
+        pageSize=20; maximum pageSize=100 is an interface safeguard, not a performance SLA."
+      parameters:
+        - name: dealershipId
+          in: query
+          required: false
+          description: Optional dealership filter.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: date
+          in: query
+          required: false
+          description: Optional scheduled service date.
+          schema:
+            $ref: "#/components/schemas/BusinessDate"
+        - name: status
+          in: query
+          required: false
+          description: Optional stored status; no implicit IN_PROGRESS state.
+          schema:
+            $ref: "#/components/schemas/AppointmentStatus"
+        - name: search
+          in: query
+          required: false
+          description: Trim outer whitespace; empty/whitespace means no search filter. Literal partial match,
+            not user-supplied SQL wildcard syntax.
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          description: One-based page number.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          description: Results per page; invalid values are rejected, not silently clamped.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated appointments, including cancelled and completed records.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentListResponse"
+              examples:
+                firstPage:
+                  summary: Filtered list
+                  value:
+                    items:
+                      - id: 00000010-0000-4000-8000-000000000010
+                        customer:
+                          id: 00000001-0000-4000-8000-000000000001
+                          name: Demo Customer
+                        vehicle:
+                          id: 00000002-0000-4000-8000-000000000002
+                          customerId: 00000001-0000-4000-8000-000000000001
+                          registrationNumber: DEMO-001
+                          make: Demo Make
+                          model: Demo Model
+                        dealership:
+                          id: 00000003-0000-4000-8000-000000000003
+                          name: Demo Dealership
+                        services:
+                          - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                            name: Oil change
+                            durationMinutes: 30
+                          - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                            name: Tire service
+                            durationMinutes: 60
+                        totalDurationMinutes: 90
+                        technician:
+                          id: 00000006-0000-4000-8000-000000000006
+                          name: Demo Technician A
+                          dealershipId: 00000003-0000-4000-8000-000000000003
+                        serviceBay:
+                          id: 00000008-0000-4000-8000-000000000008
+                          label: Bay A
+                          dealershipId: 00000003-0000-4000-8000-000000000003
+                        scheduledStart: 2026-11-02T02:00:00Z
+                        scheduledEnd: 2026-11-02T03:30:00Z
+                        status: CONFIRMED
+                        createdAt: 2026-11-01T05:00:00Z
+                        updatedAt: 2026-11-01T05:00:00Z
+                        cancelledAt: null
+                        actualCompletedAt: null
+                    page: 1
+                    pageSize: 20
+                    total: 1
+                emptyPage:
+                  summary: Page beyond matching results
+                  value:
+                    items: []
+                    page: 2
+                    pageSize: 20
+                    total: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /appointments/{id}:
+    get:
+      operationId: getAppointment
+      summary: Get appointment details
+      tags:
+        - Appointments
+      description: Includes all booked service snapshots and original scheduled times; internal request
+        keys/hashes and occupancy values remain private.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Record identifier.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Appointment details.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+              examples:
+                confirmed:
+                  summary: Confirmed appointment
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: CONFIRMED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-01T05:00:00Z
+                    cancelledAt: null
+                    actualCompletedAt: null
+                completed:
+                  summary: Completed early; scheduled end unchanged
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: COMPLETED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-02T03:00:00Z
+                    cancelledAt: null
+                    actualCompletedAt: 2026-11-02T03:00:00Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /appointments/{id}/cancel:
+    post:
+      operationId: cancelAppointment
+      summary: Cancel an uncompleted appointment
+      tags:
+        - Appointments
+      description: CONFIRMED can be cancelled before or after scheduled start/end. Keep the record and
+        cancellation time; release only remaining occupancy. Already CANCELLED returns the same
+        record unchanged. COMPLETED returns 409 INVALID_APPOINTMENT_STATE. No request body is
+        accepted; server supplies time. Mutation is transactional and coordinated with
+        booking/completion.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Record identifier.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Cancelled appointment, or unchanged record for a repeat cancellation.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+              examples:
+                cancelled:
+                  summary: Cancelled record
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: CANCELLED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-02T01:30:00Z
+                    cancelledAt: 2026-11-02T01:30:00Z
+                    actualCompletedAt: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /appointments/{id}/complete:
+    post:
+      operationId: completeAppointment
+      summary: Complete service and release remaining resources
+      tags:
+        - Appointments
+      description: Only CONFIRMED at or after scheduled start may complete. Reject earlier completion or
+        CANCELLED state with 409 INVALID_APPOINTMENT_STATE. Repeated completion is 409
+        APPOINTMENT_ALREADY_COMPLETED and preserves original completion time. Record server actual
+        completion time, preserve scheduled start/end, and release the remainder; late completion
+        never extends occupancy past scheduled end. No Start action or request body. Scheduled end
+        releases resources even without this operation, but does not automatically set COMPLETED.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Record identifier.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: Completed appointment.
+          headers:
+            X-Request-Id:
+              description: Server-generated correlation ID returned on every response.
+              schema:
+                $ref: "#/components/schemas/Uuid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+              examples:
+                completedEarly:
+                  summary: Completed at 10:00 Vietnam time, originally ending at 10:30
+                  value:
+                    id: 00000010-0000-4000-8000-000000000010
+                    customer:
+                      id: 00000001-0000-4000-8000-000000000001
+                      name: Demo Customer
+                    vehicle:
+                      id: 00000002-0000-4000-8000-000000000002
+                      customerId: 00000001-0000-4000-8000-000000000001
+                      registrationNumber: DEMO-001
+                      make: Demo Make
+                      model: Demo Model
+                    dealership:
+                      id: 00000003-0000-4000-8000-000000000003
+                      name: Demo Dealership
+                    services:
+                      - serviceTypeId: 00000004-0000-4000-8000-000000000004
+                        name: Oil change
+                        durationMinutes: 30
+                      - serviceTypeId: 00000005-0000-4000-8000-000000000005
+                        name: Tire service
+                        durationMinutes: 60
+                    totalDurationMinutes: 90
+                    technician:
+                      id: 00000006-0000-4000-8000-000000000006
+                      name: Demo Technician A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    serviceBay:
+                      id: 00000008-0000-4000-8000-000000000008
+                      label: Bay A
+                      dealershipId: 00000003-0000-4000-8000-000000000003
+                    scheduledStart: 2026-11-02T02:00:00Z
+                    scheduledEnd: 2026-11-02T03:30:00Z
+                    status: COMPLETED
+                    createdAt: 2026-11-01T05:00:00Z
+                    updatedAt: 2026-11-02T03:00:00Z
+                    cancelledAt: null
+                    actualCompletedAt: 2026-11-02T03:00:00Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - database
+        - timestamp
+        - demoStaff
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        database:
+          type: string
+          enum: [up]
+        timestamp:
+          $ref: "#/components/schemas/Timestamp"
+        demoStaff:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - displayName
+          properties:
+            id:
+              $ref: "#/components/schemas/Uuid"
+            displayName:
+              type: string
+              minLength: 1
+    Uuid:
+      type: string
+      format: uuid
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 instant with Z or an explicit offset. Responses use UTC Z; displayed business
+        time is Asia/Ho_Chi_Minh.
+    BusinessDate:
+      type: string
+      format: date
+      pattern: ^\d{4}-\d{2}-\d{2}$
+      description: Calendar date in Asia/Ho_Chi_Minh.
+    AppointmentStatus:
+      type: string
+      enum:
+        - CONFIRMED
+        - CANCELLED
+        - COMPLETED
+    Customer:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - phone
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{7,14}$'
+    CreateCustomerRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - phone
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        phone:
+          type: string
+          description: Vietnamese local or international phone input; stored normalized.
+    UpdateCustomerRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        phone:
+          type: string
+          description: Vietnamese local or international phone input; stored normalized.
+    CreateVehicleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - registrationNumber
+        - make
+        - model
+      properties:
+        registrationNumber:
+          type: string
+          minLength: 3
+          maxLength: 20
+        make:
+          type: string
+          minLength: 1
+          maxLength: 50
+        model:
+          type: string
+          minLength: 1
+          maxLength: 50
+    Vehicle:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - customerId
+        - registrationNumber
+        - make
+        - model
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        customerId:
+          $ref: "#/components/schemas/Uuid"
+        registrationNumber:
+          type: string
+          minLength: 1
+        make:
+          type: string
+          minLength: 1
+        model:
+          type: string
+          minLength: 1
+    Dealership:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          minLength: 1
+    ServiceType:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 540
+    CreateServiceTypeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 540
+    UpdateServiceTypeRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 540
+    Technician:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - dealershipId
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          minLength: 1
+        dealershipId:
+          $ref: "#/components/schemas/Uuid"
+    TechnicianManagement:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - dealership
+        - serviceTypes
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          minLength: 1
+        dealership:
+          $ref: "#/components/schemas/Dealership"
+        serviceTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceType"
+    UpdateTechnicianRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    CreateTechnicianRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - dealershipId
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        dealershipId:
+          $ref: "#/components/schemas/Uuid"
+        serviceTypeIds:
+          type: array
+          uniqueItems: true
+          maxItems: 100
+          default: []
+          items:
+            $ref: "#/components/schemas/Uuid"
+    ServiceBay:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - label
+        - dealershipId
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        label:
+          type: string
+          minLength: 1
+        dealershipId:
+          $ref: "#/components/schemas/Uuid"
+    AppointmentService:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceTypeId
+        - name
+        - durationMinutes
+      properties:
+        serviceTypeId:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          minimum: 1
+      description: Snapshot of a booked service, retained independently of later reference-data changes.
+    CreateAppointmentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - customerId
+        - vehicleId
+        - dealershipId
+        - serviceIds
+        - scheduledStart
+        - technicianId
+        - serviceBayId
+      properties:
+        customerId:
+          $ref: "#/components/schemas/Uuid"
+        vehicleId:
+          $ref: "#/components/schemas/Uuid"
+        dealershipId:
+          $ref: "#/components/schemas/Uuid"
+        serviceIds:
+          type: array
+          items:
+            $ref: "#/components/schemas/Uuid"
+          minItems: 1
+          uniqueItems: true
+          description: Unordered set of distinct service types. One technician must support all selected
+            services. Total duration is their sum.
+        scheduledStart:
+          $ref: "#/components/schemas/Timestamp"
+        technicianId:
+          $ref: "#/components/schemas/Uuid"
+        serviceBayId:
+          $ref: "#/components/schemas/Uuid"
+      description: Confirm immediately if valid. The client cannot supply duration, end time, status, or
+        actual lifecycle timestamps. Services run sequentially using the same technician and bay.
+    AvailabilitySlot:
+      type: object
+      additionalProperties: false
+      required:
+        - scheduledStart
+        - scheduledEnd
+        - technicians
+        - serviceBays
+        - suggestedTechnicianId
+        - suggestedServiceBayId
+      properties:
+        scheduledStart:
+          $ref: "#/components/schemas/Timestamp"
+        scheduledEnd:
+          $ref: "#/components/schemas/Timestamp"
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/Technician"
+          minItems: 1
+          description: Technicians qualified for all selected services and free for the full interval;
+            ascending ID.
+        serviceBays:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceBay"
+          minItems: 1
+          description: Available for the full interval; ascending ID. Every bay supports every service.
+        suggestedTechnicianId:
+          $ref: "#/components/schemas/Uuid"
+        suggestedServiceBayId:
+          $ref: "#/components/schemas/Uuid"
+      description: Every resource belongs to the selected dealership. Suggested IDs are the first entries
+        in their respective sorted arrays; staff can select alternatives.
+    AvailabilityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - dealershipId
+        - vehicleId
+        - date
+        - timeZone
+        - generatedAt
+        - services
+        - totalDurationMinutes
+        - slots
+      properties:
+        dealershipId:
+          $ref: "#/components/schemas/Uuid"
+        vehicleId:
+          $ref: "#/components/schemas/Uuid"
+        date:
+          $ref: "#/components/schemas/BusinessDate"
+        timeZone:
+          type: string
+          enum:
+            - Asia/Ho_Chi_Minh
+        generatedAt:
+          $ref: "#/components/schemas/Timestamp"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceType"
+          minItems: 1
+        totalDurationMinutes:
+          type: integer
+          minimum: 1
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlot"
+      description: Snapshot, never a reservation. Empty slots is a successful no-capacity response. New
+        lookup excludes past starts; all intervals must fit 08:00–17:00 and start on a 30-minute
+        boundary.
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - RESOURCE_NOT_FOUND
+        - INVALID_RELATIONSHIP
+        - TECHNICIAN_NOT_QUALIFIED
+        - INVALID_SCHEDULE
+        - RESOURCE_CONFLICT
+        - VEHICLE_CONFLICT
+        - CONFIRMATION_TOO_LATE
+        - IDEMPOTENCY_KEY_REUSED
+        - INVALID_APPOINTMENT_STATE
+        - APPOINTMENT_ALREADY_COMPLETED
+        - SERVICE_UNAVAILABLE
+        - INTERNAL_ERROR
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - statusCode
+        - code
+        - message
+        - requestId
+      properties:
+        statusCode:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: array
+              items:
+                type: string
+                minLength: 1
+              minItems: 1
+        requestId:
+          $ref: "#/components/schemas/Uuid"
+      description: Stable machine code plus safe readable message. Never includes credentials, SQL, or
+        stack traces.
+    Appointment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - customer
+        - vehicle
+        - dealership
+        - services
+        - totalDurationMinutes
+        - technician
+        - serviceBay
+        - scheduledStart
+        - scheduledEnd
+        - status
+        - createdAt
+        - updatedAt
+        - cancelledAt
+        - actualCompletedAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        customer:
+          $ref: "#/components/schemas/Customer"
+        vehicle:
+          $ref: "#/components/schemas/Vehicle"
+        dealership:
+          $ref: "#/components/schemas/Dealership"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppointmentService"
+          minItems: 1
+        totalDurationMinutes:
+          type: integer
+          minimum: 1
+        technician:
+          $ref: "#/components/schemas/Technician"
+        serviceBay:
+          $ref: "#/components/schemas/ServiceBay"
+        scheduledStart:
+          $ref: "#/components/schemas/Timestamp"
+        scheduledEnd:
+          $ref: "#/components/schemas/Timestamp"
+        status:
+          $ref: "#/components/schemas/AppointmentStatus"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "#/components/schemas/Timestamp"
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        actualCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: Explicit public DTO. CONFIRMED has null lifecycle timestamps; CANCELLED has cancelledAt
+        only; COMPLETED has actualCompletedAt only. The original scheduled interval remains
+        unchanged. Passing scheduled end releases resources without automatically changing status.
+        Internal request keys/hashes and occupancy fields are not exposed.
+    AppointmentListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Appointment"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+      description: Filtering and case-insensitive partial search precede ordering/pagination. Order is
+        scheduledStart ascending, then id ascending. total is the full matching count, not the page
+        length. A valid page beyond the final page returns empty items.
+  responses:
+    BadRequest:
+      description: Malformed DTO, invalid schedule, relationship, or qualification.
+      headers:
+        X-Request-Id:
+          description: Server-generated correlation ID returned on every response.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            validation:
+              summary: Invalid input
+              value:
+                statusCode: 400
+                code: VALIDATION_ERROR
+                message:
+                  - serviceIds must contain at least one service
+                requestId: 00000011-0000-4000-8000-000000000011
+            relationship:
+              summary: Ownership mismatch
+              value:
+                statusCode: 400
+                code: INVALID_RELATIONSHIP
+                message: Vehicle does not belong to the selected customer
+                requestId: 00000011-0000-4000-8000-000000000011
+            qualification:
+              summary: Not qualified for all services
+              value:
+                statusCode: 400
+                code: TECHNICIAN_NOT_QUALIFIED
+                message: Technician must support every selected service
+                requestId: 00000011-0000-4000-8000-000000000011
+            schedule:
+              summary: Invalid schedule
+              value:
+                statusCode: 400
+                code: INVALID_SCHEDULE
+                message: The combined service duration must end by 17:00
+                requestId: 00000011-0000-4000-8000-000000000011
+    NotFound:
+      description: A referenced customer, vehicle, dealership, service, resource, or appointment does not exist.
+      headers:
+        X-Request-Id:
+          description: Server-generated correlation ID returned on every response.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            missing:
+              summary: Missing record
+              value:
+                statusCode: 404
+                code: RESOURCE_NOT_FOUND
+                message: Requested resource was not found
+                requestId: 00000011-0000-4000-8000-000000000011
+    Conflict:
+      description: Current state conflicts with the requested operation. Codes identify the recovery action.
+      headers:
+        X-Request-Id:
+          description: Server-generated correlation ID returned on every response.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            resource:
+              summary: Refresh availability; no silent substitution
+              value:
+                statusCode: 409
+                code: RESOURCE_CONFLICT
+                message: Selected technician or service bay is no longer available
+                requestId: 00000011-0000-4000-8000-000000000011
+            vehicle:
+              summary: Vehicle conflicts across dealerships
+              value:
+                statusCode: 409
+                code: VEHICLE_CONFLICT
+                message: Vehicle has an overlapping appointment
+                requestId: 00000011-0000-4000-8000-000000000011
+            tooLate:
+              summary: Choose a new start
+              value:
+                statusCode: 409
+                code: CONFIRMATION_TOO_LATE
+                message: The selected start is more than 15 minutes in the past
+                requestId: 00000011-0000-4000-8000-000000000011
+            keyMismatch:
+              summary: Use a new key for a new operation
+              value:
+                statusCode: 409
+                code: IDEMPOTENCY_KEY_REUSED
+                message: This request key was already used with different booking content
+                requestId: 00000011-0000-4000-8000-000000000011
+            invalidState:
+              summary: Invalid transition or completion before start
+              value:
+                statusCode: 409
+                code: INVALID_APPOINTMENT_STATE
+                message: This operation is not allowed for the appointment state
+                requestId: 00000011-0000-4000-8000-000000000011
+            alreadyCompleted:
+              summary: Completion cannot be repeated
+              value:
+                statusCode: 409
+                code: APPOINTMENT_ALREADY_COMPLETED
+                message: Appointment already completed
+                requestId: 00000011-0000-4000-8000-000000000011
+    ServiceUnavailable:
+      description: Database unavailable or bounded contention handling exhausted. A booking retry must
+        reuse the same request key.
+      headers:
+        X-Request-Id:
+          description: Server-generated correlation ID returned on every response.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            unavailable:
+              summary: Transient failure
+              value:
+                statusCode: 503
+                code: SERVICE_UNAVAILABLE
+                message: Service temporarily unavailable; retry with the same booking request key
+                requestId: 00000011-0000-4000-8000-000000000011
+    InternalError:
+      description: Unexpected safe error response. A failed operation must not leave partial records.
+      headers:
+        X-Request-Id:
+          description: Server-generated correlation ID returned on every response.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            unexpected:
+              summary: Use requestId for investigation
+              value:
+                statusCode: 500
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+                requestId: 00000011-0000-4000-8000-000000000011

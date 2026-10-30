@@ -1,0 +1,13 @@
+# Local credentials and overrides
+.env
+.env.*
+!.env.example
+!**/.env.test.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test.example
+
+# Dependencies and local output
+node_modules/
+.DS_Store
