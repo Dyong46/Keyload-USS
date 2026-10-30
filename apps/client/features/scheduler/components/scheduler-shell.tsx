@@ -136,7 +136,7 @@ export function SchedulerShell({
             <span className="text-sm font-bold">USS</span>
           </div>
           <div className="hidden items-center gap-2 text-xs font-medium text-slate-500 lg:flex">
-            <Building2 className="size-4" /> Demo dealership workspace
+            <Building2 className="size-4" /> Dealership workspace
           </div>
           <div className="flex items-center gap-2">
             <Badge
@@ -211,8 +211,7 @@ function NavLink({
       className={cn(
         "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white",
         collapsed && "justify-center gap-0 px-0",
-        active &&
-          "bg-white/10 font-semibold text-white ring-1 ring-white/10"
+        active && "bg-white/10 font-semibold text-white ring-1 ring-white/10"
       )}
     >
       <Icon className={cn("size-4", active && "text-blue-400")} />

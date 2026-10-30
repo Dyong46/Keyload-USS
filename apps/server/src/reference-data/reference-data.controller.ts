@@ -31,12 +31,12 @@ import {
 } from './reference-data.dto.js';
 import { ReferenceDataService } from './reference-data.service.js';
 
-@ApiTags('Reference data')
 @Controller()
 export class ReferenceDataController {
   constructor(private readonly referenceData: ReferenceDataService) {}
 
   @Get('customers')
+  @ApiTags('Customers')
   @ApiOperation({
     operationId: 'listCustomers',
     summary: 'Search customers by name, phone, or registration',
@@ -49,6 +49,7 @@ export class ReferenceDataController {
   }
 
   @Post('customers')
+  @ApiTags('Customers')
   @ApiOperation({ operationId: 'createCustomer', summary: 'Create a customer' })
   @ApiCreatedResponse({ type: CustomerDto })
   @ApiConflictResponse({ description: 'Phone already exists.' })
@@ -57,6 +58,7 @@ export class ReferenceDataController {
   }
 
   @Patch('customers/:id')
+  @ApiTags('Customers')
   @ApiOperation({ operationId: 'updateCustomer', summary: 'Update a customer' })
   @ApiOkResponse({ type: CustomerDto })
   @ApiNotFoundResponse({ description: 'Customer was not found.' })
@@ -69,6 +71,7 @@ export class ReferenceDataController {
   }
 
   @Get('customers/:id/vehicles')
+  @ApiTags('Customers')
   @ApiOperation({
     operationId: 'listCustomerVehicles',
     summary: 'List vehicles owned by a customer',
@@ -82,6 +85,7 @@ export class ReferenceDataController {
   }
 
   @Post('customers/:id/vehicles')
+  @ApiTags('Customers')
   @ApiOperation({
     operationId: 'createCustomerVehicle',
     summary: 'Add a vehicle owned by a customer',
@@ -97,9 +101,10 @@ export class ReferenceDataController {
   }
 
   @Get('dealerships')
+  @ApiTags('Dealerships')
   @ApiOperation({
     operationId: 'listDealerships',
-    summary: 'List sample dealerships',
+    summary: 'List dealerships',
   })
   @ApiOkResponse({ type: DealershipDto, isArray: true })
   listDealerships(): Promise<DealershipDto[]> {
@@ -107,6 +112,7 @@ export class ReferenceDataController {
   }
 
   @Get('service-types')
+  @ApiTags('Service Types')
   @ApiOperation({
     operationId: 'listServiceTypes',
     summary: 'List service types with fixed durations',
@@ -117,6 +123,7 @@ export class ReferenceDataController {
   }
 
   @Post('service-types')
+  @ApiTags('Service Types')
   @ApiOperation({
     operationId: 'createServiceType',
     summary: 'Create a service type',
@@ -130,6 +137,7 @@ export class ReferenceDataController {
   }
 
   @Patch('service-types/:id')
+  @ApiTags('Service Types')
   @ApiOperation({
     operationId: 'updateServiceType',
     summary: 'Update a service type for future bookings',

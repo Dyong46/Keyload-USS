@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import {
@@ -8,13 +7,8 @@ import {
   schedulerQueryKeys,
   type ApiDealership,
 } from "@/features/scheduler/api/scheduler-api"
-import {
-  DEALERSHIPS as DEMO_DEALERSHIPS,
-  type Dealership,
-} from "@/lib/mock-scheduler"
 
-export type SchedulerDealership = ApiDealership &
-  Pick<Dealership, "address" | "technicians" | "bays">
+export type SchedulerDealership = ApiDealership
 
 export function useSchedulerReferenceData() {
   const healthQuery = useQuery({
@@ -31,22 +25,7 @@ export function useSchedulerReferenceData() {
     queryFn: ({ signal }) => schedulerApi.serviceTypes(signal),
   })
 
-  const dealerships = React.useMemo<SchedulerDealership[]>(
-    () =>
-      (dealershipsQuery.data ?? []).map((apiDealership, index) => {
-        const demoDealership =
-          DEMO_DEALERSHIPS.find((item) => item.name === apiDealership.name) ??
-          DEMO_DEALERSHIPS[index]
-
-        return {
-          ...apiDealership,
-          address: demoDealership?.address ?? "Demo dealership",
-          technicians: demoDealership?.technicians ?? [],
-          bays: demoDealership?.bays ?? [],
-        }
-      }),
-    [dealershipsQuery.data]
-  )
+  const dealerships: SchedulerDealership[] = dealershipsQuery.data ?? []
 
   const referenceQueries = [dealershipsQuery, serviceTypesQuery]
   const referenceReady =

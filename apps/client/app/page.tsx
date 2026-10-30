@@ -1,10 +1,10 @@
-import { SchedulerDemo } from "@/components/scheduler-demo"
+import { SchedulerApp } from "@/components/scheduler-app"
 import { QueryProvider } from "@/providers/query-provider"
 
 export default function Page() {
   return (
     <QueryProvider>
-      <SchedulerDemo />
+      <SchedulerApp />
     </QueryProvider>
   )
 }

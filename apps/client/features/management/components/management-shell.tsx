@@ -24,7 +24,7 @@ export function ManagementShell({ children }: { children: ReactNode }) {
             ? "unavailable"
             : "pending"
       }
-      staffName={healthQuery.data?.demoStaff.displayName ?? "Demo Staff"}
+      staffName={healthQuery.data?.demoStaff.displayName ?? "Dealership Staff"}
     >
       {children}
     </SchedulerShell>

@@ -3,7 +3,8 @@ openapi: 3.0.3
 info:
   title: Unified Service Scheduler API
   version: 1.2.0
-  description: Implemented contract for Keyloop Scenario A, aligned with PRD v1.5 and
+  description:
+    Implemented contract for Keyloop Scenario A, aligned with PRD v1.5 and
     system-design.md. All examples use synthetic identifiers and data; they are not
     guaranteed to be existing seed records. This local demo has no authentication.
     Backend paths exclude the frontend /api proxy prefix.
@@ -16,8 +17,12 @@ servers:
 tags:
   - name: Health
     description: Development readiness information.
-  - name: Reference data
-    description: Customer, vehicle, dealership, and service-type data.
+  - name: Customers
+    description: Customer records and their vehicles.
+  - name: Dealerships
+    description: Dealership reference data.
+  - name: Service Types
+    description: Service types and their fixed durations.
   - name: Technicians
     description: Technician details and service qualifications.
   - name: Availability
@@ -58,8 +63,9 @@ paths:
       operationId: listCustomers
       summary: Search customers
       tags:
-        - Reference data
-      description: Search by customer name, normalized phone, or normalized vehicle registration.
+        - Customers
+      description:
+        Search by customer name, normalized phone, or normalized vehicle registration.
         Results are ordered and capped so clients never load the full customer table.
       parameters:
         - name: search
@@ -105,7 +111,7 @@ paths:
       operationId: createCustomer
       summary: Create a customer
       tags:
-        - Reference data
+        - Customers
       requestBody:
         required: true
         content:
@@ -128,8 +134,9 @@ paths:
       operationId: listCustomerVehicles
       summary: List customer vehicles
       tags:
-        - Reference data
-      description: Returns only vehicles owned by this customer. Existing customer with no vehicles
+        - Customers
+      description:
+        Returns only vehicles owned by this customer. Existing customer with no vehicles
         returns an empty array.
       parameters:
         - name: id
@@ -173,7 +180,7 @@ paths:
       operationId: createCustomerVehicle
       summary: Add a vehicle owned by a customer
       tags:
-        - Reference data
+        - Customers
       parameters:
         - name: id
           in: path
@@ -204,7 +211,7 @@ paths:
       operationId: updateCustomer
       summary: Update a customer
       tags:
-        - Reference data
+        - Customers
       parameters:
         - name: id
           in: path
@@ -233,9 +240,9 @@ paths:
   /dealerships:
     get:
       operationId: listDealerships
-      summary: List sample dealerships
+      summary: List dealerships
       tags:
-        - Reference data
+        - Dealerships
       description: All dealerships use the shared daily hours and Vietnam timezone.
       responses:
         "200":
@@ -266,7 +273,7 @@ paths:
       operationId: listServiceTypes
       summary: List service types
       tags:
-        - Reference data
+        - Service Types
       description: Fixed positive durations; the client cannot override them.
       responses:
         "200":
@@ -300,7 +307,7 @@ paths:
       operationId: createServiceType
       summary: Create a service type
       tags:
-        - Reference data
+        - Service Types
       requestBody:
         required: true
         content:
@@ -324,7 +331,7 @@ paths:
       summary: Update a service type
       description: Existing appointments keep their service name and duration snapshots.
       tags:
-        - Reference data
+        - Service Types
       parameters:
         - name: id
           in: path
@@ -490,7 +497,8 @@ paths:
       summary: Find eligible starts and resources
       tags:
         - Availability
-      description: "Read-only consistent snapshot, not a hold. Candidate starts are every 30 minutes,
+      description:
+        "Read-only consistent snapshot, not a hold. Candidate starts are every 30 minutes,
         daily 08:00–17:00 Asia/Ho_Chi_Minh. Exclude past starts and intervals ending after closing.
         The single technician must support all services; vehicle conflicts span dealerships.
         Cancellation/completion retain occupied history while releasing the remainder. No capacity
@@ -611,7 +619,8 @@ paths:
       summary: Confirm or replay a booking
       tags:
         - Appointments
-      description: Requires Idempotency-Key (UUID). A new request rechecks the exact selected resources,
+      description:
+        Requires Idempotency-Key (UUID). A new request rechecks the exact selected resources,
         ownership, qualification, hours, and full original interval atomically. Confirmation at
         scheduledStart + 15 minutes is allowed; later is 409. Scheduled start/end do not shift.
         Matching committed key and canonical content returns 200 with the current appointment, even
@@ -624,7 +633,8 @@ paths:
         - name: Idempotency-Key
           in: header
           required: true
-          description: Client-generated UUID for this booking operation. Preserve on uncertain retries;
+          description:
+            Client-generated UUID for this booking operation. Preserve on uncertain retries;
             changed booking intent uses a new key.
           schema:
             $ref: "#/components/schemas/Uuid"
@@ -804,7 +814,8 @@ paths:
       summary: Search and paginate appointments
       tags:
         - Appointments
-      description: "Combine filters with AND. A single search string matches part of customer name,
+      description:
+        "Combine filters with AND. A single search string matches part of customer name,
         normalized phone, OR registration number, case-insensitively. No accent-folding is
         promised. Filter/search first, then scheduledStart ascending and id ascending, then
         pagination. date is scheduled service day in Asia/Ho_Chi_Minh. Defaults: page=1,
@@ -831,7 +842,8 @@ paths:
         - name: search
           in: query
           required: false
-          description: Trim outer whitespace; empty/whitespace means no search filter. Literal partial match,
+          description:
+            Trim outer whitespace; empty/whitespace means no search filter. Literal partial match,
             not user-supplied SQL wildcard syntax.
           schema:
             type: string
@@ -927,7 +939,8 @@ paths:
       summary: Get appointment details
       tags:
         - Appointments
-      description: Includes all booked service snapshots and original scheduled times; internal request
+      description:
+        Includes all booked service snapshots and original scheduled times; internal request
         keys/hashes and occupancy values remain private.
       parameters:
         - name: id
@@ -1041,7 +1054,8 @@ paths:
       summary: Cancel an uncompleted appointment
       tags:
         - Appointments
-      description: CONFIRMED can be cancelled before or after scheduled start/end. Keep the record and
+      description:
+        CONFIRMED can be cancelled before or after scheduled start/end. Keep the record and
         cancellation time; release only remaining occupancy. Already CANCELLED returns the same
         record unchanged. COMPLETED returns 409 INVALID_APPOINTMENT_STATE. No request body is
         accepted; server supplies time. Mutation is transactional and coordinated with
@@ -1121,7 +1135,8 @@ paths:
       summary: Complete service and release remaining resources
       tags:
         - Appointments
-      description: Only CONFIRMED at or after scheduled start may complete. Reject earlier completion or
+      description:
+        Only CONFIRMED at or after scheduled start may complete. Reject earlier completion or
         CANCELLED state with 409 INVALID_APPOINTMENT_STATE. Repeated completion is 409
         APPOINTMENT_ALREADY_COMPLETED and preserves original completion time. Record server actual
         completion time, preserve scheduled start/end, and release the remainder; late completion
@@ -1233,7 +1248,8 @@ components:
     Timestamp:
       type: string
       format: date-time
-      description: ISO 8601 instant with Z or an explicit offset. Responses use UTC Z; displayed business
+      description:
+        ISO 8601 instant with Z or an explicit offset. Responses use UTC Z; displayed business
         time is Asia/Ho_Chi_Minh.
     BusinessDate:
       type: string
@@ -1509,7 +1525,8 @@ components:
             $ref: "#/components/schemas/Uuid"
           minItems: 1
           uniqueItems: true
-          description: Unordered set of distinct service types. One technician must support all selected
+          description:
+            Unordered set of distinct service types. One technician must support all selected
             services. Total duration is their sum.
         scheduledStart:
           $ref: "#/components/schemas/Timestamp"
@@ -1517,7 +1534,8 @@ components:
           $ref: "#/components/schemas/Uuid"
         serviceBayId:
           $ref: "#/components/schemas/Uuid"
-      description: Confirm immediately if valid. The client cannot supply duration, end time, status, or
+      description:
+        Confirm immediately if valid. The client cannot supply duration, end time, status, or
         actual lifecycle timestamps. Services run sequentially using the same technician and bay.
     AvailabilitySlot:
       type: object
@@ -1539,7 +1557,8 @@ components:
           items:
             $ref: "#/components/schemas/Technician"
           minItems: 1
-          description: Technicians qualified for all selected services and free for the full interval;
+          description:
+            Technicians qualified for all selected services and free for the full interval;
             ascending ID.
         serviceBays:
           type: array
@@ -1551,7 +1570,8 @@ components:
           $ref: "#/components/schemas/Uuid"
         suggestedServiceBayId:
           $ref: "#/components/schemas/Uuid"
-      description: Every resource belongs to the selected dealership. Suggested IDs are the first entries
+      description:
+        Every resource belongs to the selected dealership. Suggested IDs are the first entries
         in their respective sorted arrays; staff can select alternatives.
     AvailabilityResponse:
       type: object
@@ -1590,7 +1610,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AvailabilitySlot"
-      description: Snapshot, never a reservation. Empty slots is a successful no-capacity response. New
+      description:
+        Snapshot, never a reservation. Empty slots is a successful no-capacity response. New
         lookup excludes past starts; all intervals must fit 08:00–17:00 and start on a 30-minute
         boundary.
     ErrorCode:
@@ -1635,7 +1656,8 @@ components:
               minItems: 1
         requestId:
           $ref: "#/components/schemas/Uuid"
-      description: Stable machine code plus safe readable message. Never includes credentials, SQL, or
+      description:
+        Stable machine code plus safe readable message. Never includes credentials, SQL, or
         stack traces.
     Appointment:
       type: object
@@ -1695,7 +1717,8 @@ components:
           type: string
           format: date-time
           nullable: true
-      description: Explicit public DTO. CONFIRMED has null lifecycle timestamps; CANCELLED has cancelledAt
+      description:
+        Explicit public DTO. CONFIRMED has null lifecycle timestamps; CANCELLED has cancelledAt
         only; COMPLETED has actualCompletedAt only. The original scheduled interval remains
         unchanged. Passing scheduled end releases resources without automatically changing status.
         Internal request keys/hashes and occupancy fields are not exposed.
@@ -1722,7 +1745,8 @@ components:
         total:
           type: integer
           minimum: 0
-      description: Filtering and case-insensitive partial search precede ordering/pagination. Order is
+      description:
+        Filtering and case-insensitive partial search precede ordering/pagination. Order is
         scheduledStart ascending, then id ascending. total is the full matching count, not the page
         length. A valid page beyond the final page returns empty items.
   responses:
@@ -1841,7 +1865,8 @@ components:
                 message: Appointment already completed
                 requestId: 00000011-0000-4000-8000-000000000011
     ServiceUnavailable:
-      description: Database unavailable or bounded contention handling exhausted. A booking retry must
+      description:
+        Database unavailable or bounded contention handling exhausted. A booking retry must
         reuse the same request key.
       headers:
         X-Request-Id:

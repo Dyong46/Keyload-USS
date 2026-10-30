@@ -9,7 +9,6 @@ import {
   ServerCrash,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,25 +16,11 @@ import {
   type ApiAppointmentStatus,
 } from "@/features/scheduler/api/scheduler-api"
 import { AppointmentActions } from "@/features/scheduler/components/appointment-actions"
+import { appointmentPhase } from "@/features/scheduler/components/appointment-presentation"
+import { AppointmentSchedule } from "@/features/scheduler/components/appointment-schedule"
+import { AppointmentStatus } from "@/features/scheduler/components/appointment-status"
 import type { AppointmentAction } from "@/features/scheduler/hooks/use-appointments"
 import { cn } from "@/lib/utils"
-
-function vietnamDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(value))
-}
-
-function statusStyle(status: ApiAppointmentStatus) {
-  if (status === "CONFIRMED") return "bg-blue-50 text-blue-700"
-  if (status === "COMPLETED") return "bg-emerald-50 text-emerald-700"
-  return "bg-slate-100 text-slate-600"
-}
 
 export function AppointmentsView({
   appointments,
@@ -165,61 +150,66 @@ export function AppointmentsView({
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((appointment) => (
-                  <tr key={appointment.id} className="border-t align-top">
-                    <td className="px-3 py-3 font-medium whitespace-nowrap">
-                      {vietnamDateTime(appointment.scheduledStart)}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="block font-medium">
-                        {appointment.customer.name}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {appointment.customer.phone}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="block font-medium">
-                        {appointment.vehicle.registrationNumber}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {appointment.vehicle.make} {appointment.vehicle.model}
-                      </span>
-                    </td>
-                    <td className="max-w-64 px-3 py-3 text-xs">
-                      {appointment.services
-                        .map((service) => service.name)
-                        .join(", ")}
-                    </td>
-                    <td className="px-3 py-3 text-xs">
-                      {appointment.technician.name}
-                      <span className="block text-slate-500">
-                        {appointment.serviceBay.label}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "border-0",
-                          statusStyle(appointment.status)
-                        )}
-                      >
-                        {appointment.status}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end">
-                        <AppointmentActions
+                {appointments.map((appointment) => {
+                  const phase = appointmentPhase(appointment, currentTime)
+
+                  return (
+                    <tr
+                      key={appointment.id}
+                      className={cn(
+                        "border-t align-top transition-colors hover:bg-slate-50/70",
+                        phase === "AWAITING_COMPLETION" && "bg-amber-50/40"
+                      )}
+                    >
+                      <td className="px-3 py-3">
+                        <AppointmentSchedule appointment={appointment} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="block font-medium">
+                          {appointment.customer.name}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {appointment.customer.phone}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="block font-medium">
+                          {appointment.vehicle.registrationNumber}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {appointment.vehicle.make} {appointment.vehicle.model}
+                        </span>
+                      </td>
+                      <td className="max-w-64 px-3 py-3 text-xs">
+                        {appointment.services
+                          .map((service) => service.name)
+                          .join(", ")}
+                      </td>
+                      <td className="px-3 py-3 text-xs">
+                        {appointment.technician.name}
+                        <span className="block text-slate-500">
+                          {appointment.serviceBay.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <AppointmentStatus
                           appointment={appointment}
                           currentTime={currentTime}
-                          pendingAction={pendingAction}
-                          onAction={onAppointmentAction}
                         />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end">
+                          <AppointmentActions
+                            appointment={appointment}
+                            currentTime={currentTime}
+                            pendingAction={pendingAction}
+                            onAction={onAppointmentAction}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

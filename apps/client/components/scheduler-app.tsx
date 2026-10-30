@@ -26,12 +26,18 @@ type View = "appointments" | "booking"
 const EMPTY_DEALERSHIP: SchedulerDealership = {
   id: "",
   name: "Loading dealership…",
-  address: "",
-  technicians: [],
-  bays: [],
 }
 
-export function SchedulerDemo({
+function vietnamDate(value: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value)
+}
+
+export function SchedulerApp({
   initialView = "appointments",
 }: {
   initialView?: Extract<View, "appointments" | "booking">
@@ -48,7 +54,9 @@ export function SchedulerDemo({
   const [selectedVehicle, setSelectedVehicle] = React.useState<ApiVehicle>()
   const [dealershipId, setDealershipId] = React.useState("")
   const [serviceIds, setServiceIds] = React.useState<string[]>([])
-  const [selectedDate, setSelectedDate] = React.useState("2026-11-05")
+  const [selectedDate, setSelectedDate] = React.useState(() =>
+    vietnamDate(new Date())
+  )
   const [selectedTime, setSelectedTime] = React.useState("")
   const [technicianId, setTechnicianId] = React.useState("")
   const [bayId, setBayId] = React.useState("")
@@ -93,17 +101,22 @@ export function SchedulerDemo({
     (total, service) => total + service.durationMinutes,
     0
   )
+  const selectedVehicleId = selectedVehicle?.id
+  const minimumDate = vietnamDate(
+    healthQuery.data ? new Date(healthQuery.data.timestamp) : new Date()
+  )
+  const bookingDate = selectedDate < minimumDate ? minimumDate : selectedDate
   const availabilityParams = React.useMemo(
     () =>
-      dealership.id && selectedVehicle?.id && serviceIds.length && selectedDate
+      dealership.id && selectedVehicleId && serviceIds.length && bookingDate
         ? {
             dealershipId: dealership.id,
-            vehicleId: selectedVehicle.id,
+            vehicleId: selectedVehicleId,
             serviceIds: [...serviceIds].sort(),
-            date: selectedDate,
+            date: bookingDate,
           }
         : undefined,
-    [dealership.id, selectedDate, selectedVehicle?.id, serviceIds]
+    [bookingDate, dealership.id, selectedVehicleId, serviceIds]
   )
   const {
     availabilityQuery,
@@ -122,15 +135,6 @@ export function SchedulerDemo({
   const selectedSlot = availabilitySlots.find(
     (slot) => slot.scheduledStart === selectedTime
   )
-  const minimumDate = healthQuery.data
-    ? new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Ho_Chi_Minh",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date(healthQuery.data.timestamp))
-    : "2026-10-30"
-
   function startBooking() {
     if (initialView === "appointments") {
       router.push("/appointments/new")
@@ -209,7 +213,7 @@ export function SchedulerDemo({
             ? "unavailable"
             : "pending"
       }
-      staffName={healthQuery.data?.demoStaff.displayName ?? "Demo Staff"}
+      staffName={healthQuery.data?.demoStaff.displayName ?? "Dealership Staff"}
     >
       {view === "appointments" && (
         <AppointmentsView
@@ -282,7 +286,7 @@ export function SchedulerDemo({
           }}
           serviceIds={serviceIds}
           toggleService={toggleService}
-          selectedDate={selectedDate}
+          selectedDate={bookingDate}
           minimumDate={minimumDate}
           setSelectedDate={(date) => {
             setSelectedDate(date)

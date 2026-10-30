@@ -6,9 +6,9 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { NativeSelect } from "@/features/scheduler/components/scheduler-fields"
 import type { BookingViewProps } from "@/features/scheduler/components/booking/booking-types"
+import { ServiceDatePicker } from "@/features/scheduler/components/booking/service-date-picker"
+import { NativeSelect } from "@/features/scheduler/components/scheduler-fields"
 import { cn } from "@/lib/utils"
 
 function vietnamTime(value: string) {
@@ -44,18 +44,16 @@ export function AvailabilityTable(props: BookingViewProps) {
             ))}
           </NativeSelect>
         </div>
-        <label className="w-44">
+        <div>
           <span className="mb-1 block text-xs font-semibold text-slate-600">
             Service date
           </span>
-          <Input
-            type="date"
-            min={props.minimumDate}
+          <ServiceDatePicker
             value={props.selectedDate}
-            onChange={(event) => props.setSelectedDate(event.target.value)}
-            className="h-11"
+            minimumDate={props.minimumDate}
+            onChange={props.setSelectedDate}
           />
-        </label>
+        </div>
       </div>
 
       {!readyForAvailability ? (

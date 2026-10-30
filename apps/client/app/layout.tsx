@@ -15,7 +15,7 @@ const fontMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "USS — Unified Service Scheduler",
-  description: "Dealership service appointment scheduling demo",
+  description: "Dealership service appointment scheduling",
 }
 
 export default function RootLayout({
