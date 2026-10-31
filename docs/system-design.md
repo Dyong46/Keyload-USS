@@ -156,19 +156,11 @@ Appointments use `CONFIRMED`, `CANCELLED`, or `COMPLETED`; there is no manual St
 
 Cancellation is idempotent. Completion before start or from CANCELLED is rejected, and repeated completion returns “Appointment already completed.” Row locking serializes concurrent cancel/complete attempts. Existing confirmed appointments remain valid if a technician qualification is later removed.
 
-## 9. HTTP interface
+## 9. API boundary
 
-| Area          | Operations                                                      |
-| ------------- | --------------------------------------------------------------- |
-| Health        | Readiness and demo staff identity                               |
-| Customers     | Capped prefix lookup; create/update; list/create owned vehicles |
-| Service types | List/create/update fixed-duration services                      |
-| Technicians   | List/filter; create/update; attach/detach qualifications        |
-| Availability  | Eligible starts, alternatives, and duration summary             |
-| Appointments  | Create/replay, list/search/filter/page, detail                  |
-| Lifecycle     | Cancel and complete                                             |
+The API is organized around reference data, technicians, availability, appointments, and lifecycle actions. Reads use bounded search/pagination where datasets can grow. Mutations use validated DTOs and consistent error envelopes; booking additionally requires an idempotency key.
 
-The checked-in [OpenAPI contract](openapi.yaml) is the detailed interface source. Runtime Swagger UI is available at `/docs`. Backend paths do not include the frontend `/api` proxy prefix.
+The checked-in [OpenAPI contract](openapi.yaml) is the sole detailed endpoint and schema reference. Runtime Swagger UI is available at `/docs`. Backend paths do not include the frontend `/api` proxy prefix.
 
 ## 10. Technology choices
 
@@ -207,34 +199,18 @@ Not implemented for this local demo: metrics exporter, tracing backend, dashboar
 - No authentication or authorization exists. The app is a local single-organization assessment demo, not an internet-ready service.
 - No fixed throughput target was supplied; load measurement has not been performed.
 
-## 13. Verification evidence
+## 13. Verification strategy
 
-Recorded on 30 October 2026:
+- Unit tests isolate availability calculations, booking rules, error mapping, and supporting utilities.
+- HTTP e2e tests verify application bootstrapping, global validation, error envelopes, and request IDs.
+- PostgreSQL integration tests cover reference data, availability, booking/replay, reads, lifecycle operations, technician qualifications, and real database constraints.
+- Concurrency tests exercise same-key requests, competing resource allocation, and cancel-versus-complete races through separate transactions.
+- Static checks and production builds verify backend and frontend packaging; the OpenAPI YAML is parsed as part of contract verification.
 
-| Check                     | Evidence                                                                                                              |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Unit behavior             | 18 backend unit tests passing                                                                                         |
-| HTTP application behavior | 2 backend e2e tests passing                                                                                           |
-| HTTP/database behavior    | 32 integration tests across availability, booking/replay, reads, lifecycle, reference data, and technician management |
-| Concurrency               | Concurrent same-key booking, conflicting allocation, and cancel-versus-complete tests pass against PostgreSQL         |
-| Static checks             | Backend/frontend lint and TypeScript checks pass                                                                      |
-| Packaging                 | NestJS and Next.js production builds pass                                                                             |
-| Contract syntax           | OpenAPI YAML parses successfully                                                                                      |
-
-Known verification gaps: no automated frontend test suite, no measured load test, and no recorded fresh-checkout rehearsal on another machine.
+Current commands and recorded results belong in the repository [README](../README.md#verification) so test counts have one source of truth. Known gaps are automated frontend/browser coverage, measured load testing, and a recorded fresh-checkout rehearsal on another machine.
 
 ## 14. GenAI use
 
-GenAI was used as a collaborator, not the product decision-maker.
+GenAI assisted with requirements clarification, architecture alternatives, schema/API drafting, implementation, refactoring, tests, and documentation. The project owner selected the scenario and stack, confirmed business rules, and accepted, changed, or rejected proposals before they became part of the solution.
 
-Assistance included:
-
-- Extracting the assessment obligations and turning owner decisions into explicit requirements.
-- Proposing architecture, schema, API, concurrency, and test approaches.
-- Implementing and refactoring backend/frontend code under owner direction.
-- Diagnosing migration, validation, UX, and workflow issues.
-- Maintaining OpenAPI, tests, README, and design documents.
-
-The owner selected Scenario A and the technology stack, then corrected or rejected AI proposals. Examples include using direct Technician–ServiceType links instead of a Skill entity, removing login and a manual Start action, changing from one service to multiple services, setting the 15-minute confirmation rule, preferring staff-first tables/search over decorative wizard UI, and replacing a confirmation page with loading/success toasts.
-
-AI-produced code and documents were checked with type checks, linting, builds, unit tests, and real-PostgreSQL integration tests. Exact collaboration history and evidence boundaries are in [AI collaboration evidence](ai-collaboration.md).
+AI-produced work was reviewed and checked with static analysis, builds, unit tests, and PostgreSQL integration/concurrency tests. Concrete examples of owner decisions, corrected proposals, problems discovered during implementation, and evidence boundaries are recorded in [AI Collaboration Evidence](ai-collaboration.md).

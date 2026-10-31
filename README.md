@@ -16,28 +16,25 @@ USS is a dealership-staff application for booking vehicle service appointments. 
 - Technician–service qualification attach/detach operations.
 - Structured NestJS domain-event logs and correlation IDs.
 
-Authentication, rescheduling, payments, notifications, individual shifts/leave, and production deployment are intentionally outside this assessment scope.
-
 ## Documentation
 
 - [Requirements / PRD](docs/PRD.md) — confirmed product scope and acceptance rules.
-- [System Design](docs/system-design.md) — implemented architecture, data flow, concurrency, observability, trade-offs, and GenAI usage.
+- [System Design](docs/system-design.md) — architecture, data model, flows, concurrency, observability, and technology trade-offs.
 - [OpenAPI contract](docs/openapi.yaml) — implemented HTTP interface.
 - [Implementation plan](docs/implementation-plan.md) — delivery status and remaining submission work.
-- [AI collaboration evidence](docs/ai-collaboration.md) — human decisions, AI-assisted work, corrections, and actual verification.
+- [AI collaboration evidence](docs/ai-collaboration.md) — how GenAI was used, human decisions, corrections, and verification boundaries.
 
-## Architecture
+## Repository structure
 
 ```text
-Browser :3000
-  └─ Next.js App Router + TanStack Query
-       └─ /api/* rewrite
-            └─ NestJS API :8000
-                 └─ Prisma
-                      └─ PostgreSQL 17 :5432
+USS/
+├── apps/
+│   ├── client/       Next.js staff application
+│   └── server/       NestJS API, Prisma schema, migrations, and Compose
+└── docs/              Requirements, system design, OpenAPI, and AI evidence
 ```
 
-The backend owns all scheduling decisions. Availability is advisory; booking revalidates ownership, qualification, time, and resource occupancy inside a serializable transaction. PostgreSQL exclusion constraints are the final double-booking guard.
+The backend owns all scheduling decisions. See [System Design](docs/system-design.md) for architecture and booking-correctness details.
 
 ## Quick start
 
@@ -126,22 +123,13 @@ Not yet claimed: automated frontend component/E2E coverage, a fresh-checkout reh
 - The isolated test database uses `uss_test` on loopback port `5433`; guarded scripts reject other targets.
 - Docker Compose configuration and its `.env` file live in `apps/server`; run Compose commands from that directory.
 - Prisma migrations own the schema. No `init.sql` duplicates table creation.
-- The seed is repeatable and creates multiple dealerships, resources, qualification combinations, customers, vehicles, and a refreshable future appointment.
+- The repeatable seed creates 20 customers, 20 vehicles, 15 service types, 20 technicians, four dealerships with five technicians and four bays each, and qualification combinations. Appointments are created through the application flow rather than seeded.
 - From `apps/server`, `docker compose down` keeps data; `docker compose down --volumes` intentionally deletes local database data.
 
-## API summary
+## Known limitations
 
-| Area               | Endpoints                                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Health             | `GET /health`                                                                                                    |
-| Customers/vehicles | `GET/POST /customers`, `PATCH /customers/{id}`, `GET/POST /customers/{id}/vehicles`                              |
-| Reference data     | `GET /dealerships`, `GET/POST /service-types`, `PATCH /service-types/{id}`                                       |
-| Technicians        | `GET/POST /technicians`, `PATCH /technicians/{id}`, `PUT/DELETE /technicians/{id}/service-types/{serviceTypeId}` |
-| Scheduling         | `GET /availability`, `GET/POST /appointments`, `GET /appointments/{id}`                                          |
-| Lifecycle          | `POST /appointments/{id}/cancel`, `POST /appointments/{id}/complete`                                             |
+- Authentication and authorization are intentionally omitted for this local assessment demo.
+- Rescheduling, payments, notifications, individual shifts/leave, reporting, and production deployment are outside scope.
+- Automated browser/component tests and measured load results are not claimed.
 
-See [OpenAPI](docs/openapi.yaml) for request/response schemas and errors.
-
-## AI collaboration
-
-GenAI assisted with requirements clarification, architecture alternatives, contract drafting, implementation, refactoring, tests, and documentation synchronization. The project owner selected the scenario, stack, and business rules; corrected proposals such as a separate Skill model and manual Start state; and approved the final behavior. Concrete examples and evidence boundaries are recorded in [AI collaboration evidence](docs/ai-collaboration.md).
+For endpoint schemas and errors, use the checked-in [OpenAPI contract](docs/openapi.yaml) or runtime Swagger UI. The required GenAI disclosure and concrete collaboration evidence are documented separately in [AI Collaboration Evidence](docs/ai-collaboration.md).
