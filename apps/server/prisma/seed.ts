@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import { createHash } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
@@ -43,20 +42,14 @@ const ids = {
     hanoiA: '00000008-0000-4000-8000-000000000003',
     hanoiB: '00000008-0000-4000-8000-000000000004',
   },
-  appointment: '00000009-0000-4000-8000-000000000001',
-  requestKey: '00000010-0000-4000-8000-000000000001',
 } as const;
 
-function futureVietnamDate(daysAhead: number): string {
-  const localDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  const date = new Date(`${localDate}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + daysAhead);
-  return date.toISOString().slice(0, 10);
+function stableId(group: number, sequence: number): string {
+  return `${String(group).padStart(8, '0')}-0000-4000-8000-${String(sequence).padStart(12, '0')}`;
+}
+
+function serviceId(sequence: number): string {
+  return stableId(4, sequence);
 }
 
 const pool = new pg.Pool({ connectionString: databaseUrl, max: 2 });
@@ -74,6 +67,29 @@ try {
       },
       { id: ids.customers.minh, name: 'Minh Tran', phone: '+84903456789' },
       { id: ids.customers.noVehicle, name: 'Lan Pham', phone: '+84987654321' },
+      ...[
+        'Bao Le',
+        'Chau Pham',
+        'Duc Nguyen',
+        'Ha Tran',
+        'Hanh Vo',
+        'Hoang Bui',
+        'Huong Do',
+        'Khoa Le',
+        'Linh Nguyen',
+        'Mai Pham',
+        'Nam Tran',
+        'Ngoc Vo',
+        'Phuc Bui',
+        'Quang Do',
+        'Thao Le',
+        'Trang Nguyen',
+        'Tuan Pham',
+      ].map((name, index) => ({
+        id: stableId(1, index + 4),
+        name,
+        phone: `+849200000${String(index + 4).padStart(2, '0')}`,
+      })),
     ];
     for (const customer of customers) {
       await tx.customer.upsert({
@@ -108,6 +124,29 @@ try {
         make: 'Honda',
         model: 'City',
       },
+      ...customers.slice(3).map((customer, index) => {
+        const vehicleNumber = index + 4;
+        const catalog = [
+          ['Toyota', 'Camry'],
+          ['Honda', 'CR-V'],
+          ['Ford', 'Everest'],
+          ['Mazda', 'CX-5'],
+          ['Hyundai', 'Tucson'],
+        ] as const;
+        const [make, model] = catalog[index % catalog.length];
+        const registrationNumber = `51D-${String(vehicleNumber).padStart(5, '0')}`;
+        return {
+          id: stableId(2, vehicleNumber),
+          customerId: customer.id,
+          registrationNumber,
+          registrationNumberNormalized: registrationNumber.replace(
+            /[^A-Z0-9]/g,
+            '',
+          ),
+          make,
+          model,
+        };
+      }),
     ];
     for (const vehicle of vehicles) {
       await tx.vehicle.upsert({
@@ -120,6 +159,8 @@ try {
     const dealerships = [
       { id: ids.dealerships.hcm, name: 'Ho Chi Minh City Dealership' },
       { id: ids.dealerships.hanoi, name: 'Hanoi Dealership' },
+      { id: stableId(3, 3), name: 'Da Nang Dealership' },
+      { id: stableId(3, 4), name: 'Can Tho Dealership' },
     ];
     for (const dealership of dealerships) {
       await tx.dealership.upsert({
@@ -138,6 +179,33 @@ try {
         durationMinutes: 90,
       },
       { id: ids.services.full, name: 'Full Service', durationMinutes: 120 },
+      { id: serviceId(5), name: 'Battery Service', durationMinutes: 30 },
+      {
+        id: serviceId(6),
+        name: 'Air Conditioning Service',
+        durationMinutes: 60,
+      },
+      { id: serviceId(7), name: 'Wheel Alignment', durationMinutes: 60 },
+      { id: serviceId(8), name: 'Engine Diagnostics', durationMinutes: 60 },
+      {
+        id: serviceId(9),
+        name: 'Transmission Service',
+        durationMinutes: 120,
+      },
+      { id: serviceId(10), name: 'Coolant Service', durationMinutes: 30 },
+      {
+        id: serviceId(11),
+        name: 'Suspension Inspection',
+        durationMinutes: 90,
+      },
+      { id: serviceId(12), name: 'Exhaust Inspection', durationMinutes: 60 },
+      { id: serviceId(13), name: 'Vehicle Detailing', durationMinutes: 120 },
+      { id: serviceId(14), name: 'Safety Inspection', durationMinutes: 60 },
+      {
+        id: serviceId(15),
+        name: 'Windscreen Replacement',
+        durationMinutes: 90,
+      },
     ];
     for (const serviceType of serviceTypes) {
       await tx.serviceType.upsert({
@@ -160,7 +228,7 @@ try {
       },
       {
         id: ids.technicians.chi,
-        dealershipId: ids.dealerships.hcm,
+        dealershipId: stableId(3, 3),
         name: 'Chi Le',
       },
       {
@@ -173,6 +241,27 @@ try {
         dealershipId: ids.dealerships.hanoi,
         name: 'Giang Vo',
       },
+      ...[
+        ['Hai Dang', 3],
+        ['Hieu Phan', 1],
+        ['Long Ho', 1],
+        ['Manh Truong', 1],
+        ['Phong Ngo', 2],
+        ['Son Ly', 2],
+        ['Viet Dao', 2],
+        ['Anh Do', 3],
+        ['Cuong Bui', 3],
+        ['Dat Le', 3],
+        ['Khanh Nguyen', 4],
+        ['Lam Tran', 4],
+        ['Quan Pham', 4],
+        ['Thanh Vu', 4],
+        ['Trung Hoang', 4],
+      ].map(([name, dealershipSequence], index) => ({
+        id: stableId(6, index + 6),
+        dealershipId: stableId(3, dealershipSequence as number),
+        name: name as string,
+      })),
     ];
     for (const technician of technicians) {
       await tx.technician.upsert({
@@ -195,6 +284,25 @@ try {
         dealershipId: ids.dealerships.hanoi,
         label: 'Bay B',
       },
+      { id: stableId(8, 5), dealershipId: ids.dealerships.hcm, label: 'Bay C' },
+      { id: stableId(8, 6), dealershipId: ids.dealerships.hcm, label: 'Bay D' },
+      {
+        id: stableId(8, 7),
+        dealershipId: ids.dealerships.hanoi,
+        label: 'Bay C',
+      },
+      {
+        id: stableId(8, 8),
+        dealershipId: ids.dealerships.hanoi,
+        label: 'Bay D',
+      },
+      ...dealerships.slice(2).flatMap((dealership, dealershipIndex) =>
+        ['Bay A', 'Bay B', 'Bay C', 'Bay D'].map((label, bayIndex) => ({
+          id: stableId(8, 9 + dealershipIndex * 4 + bayIndex),
+          dealershipId: dealership.id,
+          label,
+        })),
+      ),
     ];
     for (const serviceBay of serviceBays) {
       await tx.serviceBay.upsert({
@@ -209,98 +317,37 @@ try {
     });
     await tx.technicianServiceType.createMany({
       data: [
-        [ids.technicians.an, ids.services.oil],
-        [ids.technicians.an, ids.services.tires],
-        [ids.technicians.an, ids.services.brakes],
-        [ids.technicians.binh, ids.services.oil],
-        [ids.technicians.binh, ids.services.brakes],
-        [ids.technicians.chi, ids.services.oil],
-        [ids.technicians.dung, ids.services.oil],
-        [ids.technicians.dung, ids.services.tires],
-        [ids.technicians.dung, ids.services.full],
-        [ids.technicians.giang, ids.services.oil],
-        [ids.technicians.giang, ids.services.full],
-      ].map(([technicianId, serviceTypeId]) => ({
-        technicianId,
-        serviceTypeId,
-      })),
+        [ids.technicians.an, [1, 2, 3]],
+        [ids.technicians.binh, [1, 3]],
+        [ids.technicians.chi, [1]],
+        [ids.technicians.dung, [1, 2, 4]],
+        [ids.technicians.giang, [1, 4]],
+        [stableId(6, 6), [5, 6, 7]],
+        [stableId(6, 7), [8, 9]],
+        [stableId(6, 8), [10, 11]],
+        [stableId(6, 9), [12, 13]],
+        [stableId(6, 10), [14, 15]],
+        [stableId(6, 11), [2, 5, 8]],
+        [stableId(6, 12), [4, 6, 9]],
+        [stableId(6, 13), [2, 4, 5]],
+        [stableId(6, 14), [3, 6, 7]],
+        [stableId(6, 15), [8, 9, 10]],
+        [stableId(6, 16), [11, 12]],
+        [stableId(6, 17), [13, 14, 15]],
+        [stableId(6, 18), [1, 5, 10]],
+        [stableId(6, 19), [2, 7, 11]],
+        [stableId(6, 20), [4, 8, 12, 15]],
+      ].flatMap(([technicianId, serviceNumbers]) =>
+        (serviceNumbers as number[]).map((serviceNumber) => ({
+          technicianId: technicianId as string,
+          serviceTypeId: serviceId(serviceNumber),
+        })),
+      ),
     });
 
-    const businessDate = futureVietnamDate(7);
-    const scheduledStart = new Date(`${businessDate}T02:00:00.000Z`);
-    const scheduledEnd = new Date(`${businessDate}T03:30:00.000Z`);
-    const requestContent = {
-      customerId: ids.customers.alice,
-      vehicleId: ids.vehicles.corolla,
-      dealershipId: ids.dealerships.hcm,
-      serviceIds: [ids.services.oil, ids.services.tires],
-      scheduledStart: scheduledStart.toISOString(),
-      technicianId: ids.technicians.an,
-      serviceBayId: ids.bays.hcmA,
-    };
-    const requestHash = createHash('sha256')
-      .update(JSON.stringify(requestContent))
-      .digest('hex');
-    const appointmentData = {
-      customerId: ids.customers.alice,
-      vehicleId: ids.vehicles.corolla,
-      dealershipId: ids.dealerships.hcm,
-      technicianId: ids.technicians.an,
-      serviceBayId: ids.bays.hcmA,
-      status: 'CONFIRMED' as const,
-      scheduledStart,
-      scheduledEnd,
-      totalDurationMinutes: 90,
-      occupancyEnd: scheduledEnd,
-      requestKey: ids.requestKey,
-      requestHash,
-      cancelledAt: null,
-      actualCompletedAt: null,
-    };
-    await tx.appointment.upsert({
-      where: { id: ids.appointment },
-      update: {
-        ...appointmentData,
-        services: {
-          deleteMany: {},
-          create: [
-            {
-              serviceTypeId: ids.services.oil,
-              name: 'Oil Change',
-              durationMinutes: 30,
-            },
-            {
-              serviceTypeId: ids.services.tires,
-              name: 'Tire Service',
-              durationMinutes: 60,
-            },
-          ],
-        },
-      },
-      create: {
-        id: ids.appointment,
-        ...appointmentData,
-        services: {
-          create: [
-            {
-              serviceTypeId: ids.services.oil,
-              name: 'Oil Change',
-              durationMinutes: 30,
-            },
-            {
-              serviceTypeId: ids.services.tires,
-              name: 'Tire Service',
-              durationMinutes: 60,
-            },
-          ],
-        },
-      },
-    });
   });
 
-  console.log(
-    'Seeded USS reference data and one refreshable future appointment.',
-  );
+  console.log('Seeded USS reference data.');
 } finally {
   await prisma.$disconnect();
   await pool.end();

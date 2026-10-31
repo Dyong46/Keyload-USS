@@ -52,15 +52,28 @@ describe('reference data API (PostgreSQL integration)', () => {
     await app.close();
   });
 
-  it('returns seeded customers, dealerships, and fixed-duration services', async () => {
-    const [customers, dealerships, serviceTypes] = await Promise.all([
-      request(app.getHttpServer()).get('/customers').expect(200),
-      request(app.getHttpServer()).get('/dealerships').expect(200),
-      request(app.getHttpServer()).get('/service-types').expect(200),
-    ]);
+  it('returns the complete seeded reference dataset', async () => {
+    const [customers, dealerships, serviceTypes, technicians] =
+      await Promise.all([
+        request(app.getHttpServer())
+          .get('/customers')
+          .query({ limit: 20 })
+          .expect(200),
+        request(app.getHttpServer()).get('/dealerships').expect(200),
+        request(app.getHttpServer()).get('/service-types').expect(200),
+        request(app.getHttpServer()).get('/technicians').expect(200),
+      ]);
 
-    expect(customers.body).toHaveLength(3);
-    expect(dealerships.body).toHaveLength(2);
+    expect(customers.body).toHaveLength(20);
+    expect(dealerships.body).toHaveLength(4);
+    expect(serviceTypes.body).toHaveLength(15);
+    expect(technicians.body).toHaveLength(20);
+    const bayCounts = await prisma.serviceBay.groupBy({
+      by: ['dealershipId'],
+      _count: { _all: true },
+    });
+    expect(bayCounts).toHaveLength(4);
+    expect(bayCounts.every((item) => item._count._all === 4)).toBe(true);
     expect(serviceTypes.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'Oil Change', durationMinutes: 30 }),

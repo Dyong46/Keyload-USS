@@ -3,12 +3,15 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/common/configure-app.js';
+import { PrismaService } from '../src/database/prisma.service.js';
 
-const seededAppointmentId = '00000009-0000-4000-8000-000000000001';
+const testAppointmentId = '00000009-0000-4000-8000-000000000001';
+const testRequestKey = '30000010-0000-4000-8000-000000000001';
 const hcmDealershipId = '00000003-0000-4000-8000-000000000001';
 
 describe('appointment read APIs (PostgreSQL integration)', () => {
   let app: INestApplication;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
@@ -17,19 +20,62 @@ describe('appointment read APIs (PostgreSQL integration)', () => {
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
+    prisma = app.get(PrismaService);
+
+    await prisma.appointment.deleteMany({
+      where: {
+        OR: [{ id: testAppointmentId }, { requestKey: testRequestKey }],
+      },
+    });
+    const scheduledStart = new Date(Date.now() + 14 * 24 * 60 * 60_000);
+    scheduledStart.setUTCSeconds(0, 0);
+    const scheduledEnd = new Date(scheduledStart.getTime() + 90 * 60_000);
+    await prisma.appointment.create({
+      data: {
+        id: testAppointmentId,
+        requestKey: testRequestKey,
+        requestHash: 'a'.repeat(64),
+        customerId: '00000001-0000-4000-8000-000000000001',
+        vehicleId: '00000002-0000-4000-8000-000000000001',
+        dealershipId: hcmDealershipId,
+        technicianId: '00000006-0000-4000-8000-000000000007',
+        serviceBayId: '00000008-0000-4000-8000-000000000005',
+        scheduledStart,
+        scheduledEnd,
+        occupancyEnd: scheduledEnd,
+        totalDurationMinutes: 90,
+        services: {
+          create: [
+            {
+              serviceTypeId: '00000004-0000-4000-8000-000000000001',
+              name: 'Oil Change',
+              durationMinutes: 30,
+            },
+            {
+              serviceTypeId: '00000004-0000-4000-8000-000000000002',
+              name: 'Tire Service',
+              durationMinutes: 60,
+            },
+          ],
+        },
+      },
+    });
   });
 
   afterAll(async () => {
+    await prisma.appointment.deleteMany({
+      where: { requestKey: testRequestKey },
+    });
     await app.close();
   });
 
   it('returns appointment details without internal allocation fields', async () => {
     const response = await request(app.getHttpServer())
-      .get(`/appointments/${seededAppointmentId}`)
+      .get(`/appointments/${testAppointmentId}`)
       .expect(200);
 
     expect(response.body).toMatchObject({
-      id: seededAppointmentId,
+      id: testAppointmentId,
       customer: { name: 'Alice Nguyen' },
       vehicle: { registrationNumber: '51A-123.45' },
       dealership: { id: hcmDealershipId },
@@ -73,7 +119,7 @@ describe('appointment read APIs (PostgreSQL integration)', () => {
 
   it('combines dealership, date, status, and case-insensitive search filters', async () => {
     const detail = await request(app.getHttpServer())
-      .get(`/appointments/${seededAppointmentId}`)
+      .get(`/appointments/${testAppointmentId}`)
       .expect(200);
     const businessDate = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Ho_Chi_Minh',
@@ -93,7 +139,7 @@ describe('appointment read APIs (PostgreSQL integration)', () => {
       .expect(200);
 
     expect(response.body.items).toEqual([
-      expect.objectContaining({ id: seededAppointmentId }),
+      expect.objectContaining({ id: testAppointmentId }),
     ]);
 
     const registration = await request(app.getHttpServer())
@@ -102,7 +148,7 @@ describe('appointment read APIs (PostgreSQL integration)', () => {
       .expect(200);
     expect(registration.body.items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: seededAppointmentId }),
+        expect.objectContaining({ id: testAppointmentId }),
       ]),
     );
 
@@ -112,7 +158,7 @@ describe('appointment read APIs (PostgreSQL integration)', () => {
       .expect(200);
     expect(phone.body.items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: seededAppointmentId }),
+        expect.objectContaining({ id: testAppointmentId }),
       ]),
     );
   });
