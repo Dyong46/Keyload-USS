@@ -246,52 +246,52 @@ describe('reference data API (PostgreSQL integration)', () => {
 
   it('seeds both common-technician and no-common-technician combinations', async () => {
     const hcmDealershipId = '00000003-0000-4000-8000-000000000001';
-    const [oilAndTires, tiresAndFull] = await Promise.all([
-      prisma.technician.count({
-        where: {
-          dealershipId: hcmDealershipId,
-          AND: [
-            {
-              serviceTypes: {
-                some: {
-                  serviceTypeId: '00000004-0000-4000-8000-000000000001',
+    const noCommonServiceIds = [4, 7, 10, 13].map(
+      (sequence) =>
+        `00000004-0000-4000-8000-${String(sequence).padStart(12, '0')}`,
+    );
+    const [oilAndTires, noCommonCombination, qualificationCounts] =
+      await Promise.all([
+        prisma.technician.count({
+          where: {
+            dealershipId: hcmDealershipId,
+            AND: [
+              {
+                serviceTypes: {
+                  some: {
+                    serviceTypeId: '00000004-0000-4000-8000-000000000001',
+                  },
                 },
               },
-            },
-            {
-              serviceTypes: {
-                some: {
-                  serviceTypeId: '00000004-0000-4000-8000-000000000002',
+              {
+                serviceTypes: {
+                  some: {
+                    serviceTypeId: '00000004-0000-4000-8000-000000000002',
+                  },
                 },
               },
-            },
-          ],
-        },
-      }),
-      prisma.technician.count({
-        where: {
-          dealershipId: hcmDealershipId,
-          AND: [
-            {
-              serviceTypes: {
-                some: {
-                  serviceTypeId: '00000004-0000-4000-8000-000000000002',
-                },
-              },
-            },
-            {
-              serviceTypes: {
-                some: {
-                  serviceTypeId: '00000004-0000-4000-8000-000000000004',
-                },
-              },
-            },
-          ],
-        },
-      }),
-    ]);
+            ],
+          },
+        }),
+        prisma.technician.count({
+          where: {
+            dealershipId: hcmDealershipId,
+            AND: noCommonServiceIds.map((serviceTypeId) => ({
+              serviceTypes: { some: { serviceTypeId } },
+            })),
+          },
+        }),
+        prisma.technicianServiceType.groupBy({
+          by: ['technicianId'],
+          _count: { _all: true },
+        }),
+      ]);
 
     expect(oilAndTires).toBeGreaterThan(0);
-    expect(tiresAndFull).toBe(0);
+    expect(noCommonCombination).toBe(0);
+    expect(qualificationCounts).toHaveLength(20);
+    expect(qualificationCounts.every((item) => item._count._all === 12)).toBe(
+      true,
+    );
   });
 });

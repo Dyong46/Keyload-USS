@@ -10,6 +10,9 @@ const ids = {
   oil: '00000004-0000-4000-8000-000000000001',
   tires: '00000004-0000-4000-8000-000000000002',
   full: '00000004-0000-4000-8000-000000000004',
+  alignment: '00000004-0000-4000-8000-000000000007',
+  coolant: '00000004-0000-4000-8000-000000000010',
+  detailing: '00000004-0000-4000-8000-000000000013',
   technician: '00000006-0000-4000-8000-000000000001',
   bayA: '00000008-0000-4000-8000-000000000001',
 } as const;
@@ -57,9 +60,9 @@ describe('availability API (PostgreSQL integration)', () => {
     expect(response.body.totalDurationMinutes).toBe(90);
     expect(response.body.timeZone).toBe('Asia/Ho_Chi_Minh');
     expect(response.body.slots.length).toBeGreaterThan(0);
-    expect(response.body.slots[0].technicians).toEqual([
-      expect.objectContaining({ id: ids.technician }),
-    ]);
+    expect(response.body.slots[0].technicians).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: ids.technician })]),
+    );
     expect(response.body.slots).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -76,12 +79,12 @@ describe('availability API (PostgreSQL integration)', () => {
       .query({
         dealershipId: ids.dealership,
         vehicleId: ids.vehicle,
-        serviceIds: [ids.tires, ids.full],
+        serviceIds: [ids.full, ids.alignment, ids.coolant, ids.detailing],
         date: futureVietnamDate(7),
       })
       .expect(200);
 
-    expect(response.body.totalDurationMinutes).toBe(180);
+    expect(response.body.totalDurationMinutes).toBe(330);
     expect(response.body.slots).toEqual([]);
   });
 

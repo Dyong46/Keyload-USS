@@ -123,7 +123,7 @@ Not yet claimed: automated frontend component/E2E coverage, a fresh-checkout reh
 - The isolated test database uses `uss_test` on loopback port `5433`; guarded scripts reject other targets.
 - Docker Compose configuration and its `.env` file live in `apps/server`; run Compose commands from that directory.
 - Prisma migrations own the schema. No `init.sql` duplicates table creation.
-- The repeatable seed creates 20 customers, 20 vehicles, 15 service types, 20 technicians, four dealerships with five technicians and four bays each, and qualification combinations. Appointments are created through the application flow rather than seeded.
+- The repeatable seed creates 20 customers, 20 vehicles, 15 service types, 20 technicians, and four dealerships with five technicians and four bays each. Every technician is qualified for 12 of the 15 services, with different gaps to preserve realistic qualification checks. Appointments are created through the application flow rather than seeded.
 - From `apps/server`, `docker compose down` keeps data; `docker compose down --volumes` intentionally deletes local database data.
 
 ## Known limitations

@@ -52,6 +52,19 @@ function serviceId(sequence: number): string {
   return stableId(4, sequence);
 }
 
+const serviceNumbers = Array.from({ length: 15 }, (_, index) => index + 1);
+const missingServiceGroupByTechnician = [
+  4, 1, 2, 3, 4, 0, 2, 3, 4, 0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 0,
+] as const;
+
+function qualificationNumbers(technicianIndex: number): number[] {
+  const firstMissing = missingServiceGroupByTechnician[technicianIndex] * 3 + 1;
+  return serviceNumbers.filter(
+    (serviceNumber) =>
+      serviceNumber < firstMissing || serviceNumber > firstMissing + 2,
+  );
+}
+
 const pool = new pg.Pool({ connectionString: databaseUrl, max: 2 });
 const prisma = new PrismaClient({
   adapter: new PrismaPg(pool, { schema: 'public' }),
@@ -316,35 +329,13 @@ try {
       where: { technicianId: { in: technicians.map(({ id }) => id) } },
     });
     await tx.technicianServiceType.createMany({
-      data: [
-        [ids.technicians.an, [1, 2, 3]],
-        [ids.technicians.binh, [1, 3]],
-        [ids.technicians.chi, [1]],
-        [ids.technicians.dung, [1, 2, 4]],
-        [ids.technicians.giang, [1, 4]],
-        [stableId(6, 6), [5, 6, 7]],
-        [stableId(6, 7), [8, 9]],
-        [stableId(6, 8), [10, 11]],
-        [stableId(6, 9), [12, 13]],
-        [stableId(6, 10), [14, 15]],
-        [stableId(6, 11), [2, 5, 8]],
-        [stableId(6, 12), [4, 6, 9]],
-        [stableId(6, 13), [2, 4, 5]],
-        [stableId(6, 14), [3, 6, 7]],
-        [stableId(6, 15), [8, 9, 10]],
-        [stableId(6, 16), [11, 12]],
-        [stableId(6, 17), [13, 14, 15]],
-        [stableId(6, 18), [1, 5, 10]],
-        [stableId(6, 19), [2, 7, 11]],
-        [stableId(6, 20), [4, 8, 12, 15]],
-      ].flatMap(([technicianId, serviceNumbers]) =>
-        (serviceNumbers as number[]).map((serviceNumber) => ({
-          technicianId: technicianId as string,
+      data: technicians.flatMap((technician, technicianIndex) =>
+        qualificationNumbers(technicianIndex).map((serviceNumber) => ({
+          technicianId: technician.id,
           serviceTypeId: serviceId(serviceNumber),
         })),
       ),
     });
-
   });
 
   console.log('Seeded USS reference data.');
