@@ -58,6 +58,7 @@ describe('availability API (PostgreSQL integration)', () => {
       .expect('Cache-Control', 'no-store');
 
     expect(response.body.totalDurationMinutes).toBe(90);
+    expect(response.body.emptyReason).toBeNull();
     expect(response.body.timeZone).toBe('Asia/Ho_Chi_Minh');
     expect(response.body.slots.length).toBeGreaterThan(0);
     expect(response.body.slots[0].technicians).toEqual(
@@ -86,6 +87,7 @@ describe('availability API (PostgreSQL integration)', () => {
 
     expect(response.body.totalDurationMinutes).toBe(330);
     expect(response.body.slots).toEqual([]);
+    expect(response.body.emptyReason).toBe('NO_QUALIFIED_TECHNICIAN');
   });
 
   it('rejects duplicate services and missing reference data', async () => {

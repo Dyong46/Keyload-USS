@@ -17,7 +17,7 @@ GenAI helped clarify, design, implement, refactor, test, and document the soluti
 | Qualification model   | A separate Skill entity was considered               | Direct Technician–ServiceType association.                                             |
 | User identity         | Authentication was considered                        | One predefined demo staff member; auth outside scope.                                  |
 | Booking services      | Earlier scope assumed one service                    | One or more sequential services; one technician covers all; durations are summed.      |
-| Resource assignment   | Fully automatic assignment                           | Stable automatic suggestion plus staff selection among eligible alternatives.          |
+| Resource assignment   | Fully automatic assignment                           | Stable suggestions plus eligible alternatives; staff may switch to exact manual input without bypassing backend validation. |
 | Service execution     | Manual Start/IN_PROGRESS was considered              | No Start action; scheduled time defines execution; explicit completion releases early. |
 | Confirmation delay    | Unlimited delay after selecting a slot was discussed | Confirm through start + 15 minutes inclusive; later requests fail.                     |
 | Repeated cancellation | Error was considered                                 | Return the existing CANCELLED appointment unchanged.                                   |

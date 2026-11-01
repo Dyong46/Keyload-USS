@@ -11,7 +11,7 @@ import {
   Search,
   Settings2,
 } from "lucide-react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { Badge } from "@/components/ui/badge"
@@ -25,6 +25,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import {
   schedulerApi,
@@ -32,7 +40,8 @@ import {
   type ApiTechnicianManagement,
   type CreateTechnicianRequest,
 } from "@/features/scheduler/api/scheduler-api"
-import { NativeSelect } from "@/features/scheduler/components/scheduler-fields"
+
+const ALL_DEALERSHIPS = "all"
 
 const technicianSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -108,14 +117,8 @@ export function TechniciansManagement() {
       attach: boolean
     }) =>
       attach
-        ? schedulerApi.attachTechnicianServiceType(
-            technicianId,
-            serviceTypeId
-          )
-        : schedulerApi.detachTechnicianServiceType(
-            technicianId,
-            serviceTypeId
-          ),
+        ? schedulerApi.attachTechnicianServiceType(technicianId, serviceTypeId)
+        : schedulerApi.detachTechnicianServiceType(technicianId, serviceTypeId),
     onSuccess: (technician, variables) => {
       updateTechnicianCaches(queryClient, technician)
       void queryClient.invalidateQueries({
@@ -123,7 +126,9 @@ export function TechniciansManagement() {
       })
       toast.add({
         type: "success",
-        title: variables.attach ? "Qualification attached" : "Qualification removed",
+        title: variables.attach
+          ? "Qualification attached"
+          : "Qualification removed",
         description: `${technician.name} · future availability updated`,
       })
     },
@@ -133,6 +138,13 @@ export function TechniciansManagement() {
   const qualificationTechnician = technicians.find(
     ({ id }) => id === qualificationTechnicianId
   )
+  const dealershipOptions = [
+    { label: "All dealerships", value: ALL_DEALERSHIPS },
+    ...(dealershipsQuery.data ?? []).map((dealership) => ({
+      label: dealership.name,
+      value: dealership.id,
+    })),
+  ]
 
   return (
     <div className="space-y-4">
@@ -156,18 +168,29 @@ export function TechniciansManagement() {
           <label className="mb-1 block text-xs font-semibold text-slate-600">
             Dealership
           </label>
-          <NativeSelect
-            ariaLabel="Filter technicians by dealership"
-            value={dealershipId}
-            onChange={setDealershipId}
+          <Select
+            items={dealershipOptions}
+            value={dealershipId || ALL_DEALERSHIPS}
+            onValueChange={(value) =>
+              setDealershipId(value === ALL_DEALERSHIPS ? "" : (value ?? ""))
+            }
           >
-            <option value="">All dealerships</option>
-            {(dealershipsQuery.data ?? []).map((dealership) => (
-              <option key={dealership.id} value={dealership.id}>
-                {dealership.name}
-              </option>
-            ))}
-          </NativeSelect>
+            <SelectTrigger
+              className="w-full"
+              aria-label="Filter technicians by dealership"
+            >
+              <SelectValue placeholder="All dealerships" />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectGroup>
+                {dealershipOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         {techniciansQuery.isError ? (
@@ -311,6 +334,10 @@ function CreateTechnicianEditor({
       serviceTypeIds: [],
     },
   })
+  const dealershipOptions = dealerships.map((dealership) => ({
+    label: dealership.name,
+    value: dealership.id,
+  }))
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -340,24 +367,41 @@ function CreateTechnicianEditor({
               </span>
             )}
           </label>
-          <label className="block space-y-1.5 text-sm font-medium">
+          <div className="block space-y-1.5 text-sm font-medium">
             <span>Dealership</span>
-            <select
-              {...form.register("dealershipId")}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500"
-            >
-              {dealerships.map((dealership) => (
-                <option key={dealership.id} value={dealership.id}>
-                  {dealership.name}
-                </option>
-              ))}
-            </select>
+            <Controller
+              control={form.control}
+              name="dealershipId"
+              render={({ field }) => (
+                <Select
+                  items={dealershipOptions}
+                  value={field.value || null}
+                  onValueChange={(value) => field.onChange(value ?? "")}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    aria-invalid={Boolean(form.formState.errors.dealershipId)}
+                  >
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    <SelectGroup>
+                      {dealershipOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {form.formState.errors.dealershipId?.message && (
               <span className="block text-xs text-red-600">
                 {form.formState.errors.dealershipId.message}
               </span>
             )}
-          </label>
+          </div>
           <fieldset className="space-y-1.5">
             <legend className="text-sm font-medium">
               Initial service qualifications
@@ -450,7 +494,8 @@ function TechnicianEditor({
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <LoaderCircle className="animate-spin" />} Save changes
+              {pending && <LoaderCircle className="animate-spin" />} Save
+              changes
             </Button>
           </DialogFooter>
         </form>
@@ -478,7 +523,8 @@ function QualificationEditor({
   const attachedIds = new Set(technician.serviceTypes.map(({ id }) => id))
   const normalizedSearch = search.trim().toLowerCase()
   const filteredServices = serviceTypes.filter(
-    ({ name }) => !normalizedSearch || name.toLowerCase().includes(normalizedSearch)
+    ({ name }) =>
+      !normalizedSearch || name.toLowerCase().includes(normalizedSearch)
   )
 
   return (

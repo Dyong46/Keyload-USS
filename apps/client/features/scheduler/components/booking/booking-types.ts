@@ -1,8 +1,11 @@
 import type {
   ApiAvailabilitySlot,
+  ApiAvailabilityEmptyReason,
+  ApiAvailableServiceBay,
   ApiCustomer,
   ApiServiceType,
   ApiVehicle,
+  ApiTechnicianManagement,
   CreateCustomerRequest,
   CreateVehicleRequest,
 } from "@/features/scheduler/api/scheduler-api"
@@ -50,4 +53,15 @@ export type BookingViewProps = {
   availabilityPending: boolean
   availabilityError: boolean
   retryAvailability: () => void
+  availabilityEmptyReason: ApiAvailabilityEmptyReason | null
+  allocationMode: "automatic" | "manual"
+  enableManualAllocation: () => void
+  useSuggestedAllocation: () => void
+  manualTime: string
+  setManualTime: (value: string) => void
+  manualTechnicians: ApiTechnicianManagement[]
+  manualServiceBays: ApiAvailableServiceBay[]
+  manualResourcesPending: boolean
+  manualResourcesError: boolean
+  retryManualResources: () => void
 }

@@ -16,6 +16,7 @@ import { ApiError } from "@/lib/api"
 
 type UseBookingOptions = {
   availabilityParams?: AvailabilityParams
+  manualAllocationEnabled: boolean
   onCreated: (appointment: ApiAppointment) => void
   onRecoverableConflict: () => void
 }
@@ -44,6 +45,9 @@ function apiErrorCode(error: unknown): string | undefined {
 
 function bookingErrorMessage(error: unknown): string {
   const code = apiErrorCode(error)
+  if (code === "TECHNICIAN_NOT_QUALIFIED") {
+    return "The selected technician is not qualified for every selected service. Update the qualifications or choose another technician."
+  }
   const recoverableCodes = new Set([
     "RESOURCE_CONFLICT",
     "VEHICLE_CONFLICT",
@@ -57,6 +61,7 @@ function bookingErrorMessage(error: unknown): string {
 
 export function useBooking({
   availabilityParams,
+  manualAllocationEnabled,
   onCreated,
   onRecoverableConflict,
 }: UseBookingOptions) {
@@ -70,6 +75,22 @@ export function useBooking({
       schedulerApi.availability(availabilityParams!, signal),
     enabled: Boolean(availabilityParams),
     staleTime: 0,
+  })
+  const manualTechniciansQuery = useQuery({
+    queryKey: availabilityParams
+      ? schedulerQueryKeys.technicians(availabilityParams.dealershipId)
+      : schedulerQueryKeys.techniciansRoot,
+    queryFn: ({ signal }) =>
+      schedulerApi.technicians(availabilityParams!.dealershipId, signal),
+    enabled: Boolean(availabilityParams && manualAllocationEnabled),
+  })
+  const manualServiceBaysQuery = useQuery({
+    queryKey: availabilityParams
+      ? schedulerQueryKeys.serviceBays(availabilityParams.dealershipId)
+      : schedulerQueryKeys.serviceBaysRoot,
+    queryFn: ({ signal }) =>
+      schedulerApi.serviceBays(availabilityParams!.dealershipId, signal),
+    enabled: Boolean(availabilityParams && manualAllocationEnabled),
   })
   const createMutation = useMutation({
     mutationFn: (body: CreateAppointmentRequest) => {
@@ -131,6 +152,8 @@ export function useBooking({
 
   return {
     availabilityQuery,
+    manualTechniciansQuery,
+    manualServiceBaysQuery,
     confirmAppointment: (body: CreateAppointmentRequest) =>
       createMutation.mutate(body),
     isConfirming: createMutation.isPending,

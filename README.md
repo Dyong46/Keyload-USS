@@ -10,6 +10,7 @@ USS is a dealership-staff application for booking vehicle service appointments. 
 - Multiple fixed-duration services per appointment.
 - 30-minute availability choices during 08:00–17:00 Vietnam time.
 - Stable technician/bay suggestions with eligible manual alternatives.
+- Structured explanations for empty availability and exact manual allocation with full server-side revalidation.
 - Atomic booking, full-interval revalidation, PostgreSQL overlap constraints, and idempotent request replay.
 - Appointment list/detail, search, filters, pagination, cancellation, and completion.
 - Customer, service-type, and technician management pages.
@@ -77,7 +78,7 @@ The frontend proxies `/api/*` to `BACKEND_API_URL`, which defaults to `http://12
 2. Open **Service types** to maintain service names and fixed durations.
 3. Open **Technicians** to create technicians and maintain qualifications.
 4. Open **Appointments → New appointment**.
-5. Select customer, vehicle, services, dealership, date, available start, technician, and bay.
+5. Select customer, vehicle, services, dealership, date, available start, technician, and bay. **Manual allocation** is always available after the vehicle and services are selected; if suggestions are empty, review the reported reason before entering exact resources.
 6. Confirm the appointment; a loading toast becomes a success/error result.
 7. Use the appointment table to search, cancel, or complete service.
 

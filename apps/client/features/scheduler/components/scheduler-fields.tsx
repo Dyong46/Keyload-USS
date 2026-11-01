@@ -8,32 +8,6 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function NativeSelect({
-  value,
-  onChange,
-  children,
-  ariaLabel,
-  disabled = false,
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-  ariaLabel: string
-  disabled?: boolean
-}) {
-  return (
-    <select
-      aria-label={ariaLabel}
-      value={value}
-      disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm transition outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-500/15"
-    >
-      {children}
-    </select>
-  )
-}
-
 export function StepHeading({
   icon: Icon,
   title,

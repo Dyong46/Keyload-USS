@@ -74,6 +74,7 @@ describe('AvailabilityService', () => {
     const result = await service.getAvailability(query);
 
     expect(result.totalDurationMinutes).toBe(90);
+    expect(result.emptyReason).toBeNull();
     expect(result.slots).toHaveLength(16);
     expect(result.slots[0]).toMatchObject({
       scheduledStart: '2026-11-05T01:00:00.000Z',
@@ -110,6 +111,7 @@ describe('AvailabilityService', () => {
     const result = await service.getAvailability(query);
 
     expect(result.slots).toEqual([]);
+    expect(result.emptyReason).toBe('NO_QUALIFIED_TECHNICIAN');
   });
 
   it('rejects invalid calendar dates and missing reference data', async () => {

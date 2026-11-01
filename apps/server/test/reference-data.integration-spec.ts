@@ -68,6 +68,10 @@ describe('reference data API (PostgreSQL integration)', () => {
     expect(dealerships.body).toHaveLength(4);
     expect(serviceTypes.body).toHaveLength(15);
     expect(technicians.body).toHaveLength(20);
+    const serviceBays = await request(app.getHttpServer())
+      .get('/dealerships/00000003-0000-4000-8000-000000000001/service-bays')
+      .expect(200);
+    expect(serviceBays.body).toHaveLength(4);
     const bayCounts = await prisma.serviceBay.groupBy({
       by: ['dealershipId'],
       _count: { _all: true },

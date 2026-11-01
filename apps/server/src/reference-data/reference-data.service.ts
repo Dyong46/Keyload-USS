@@ -9,6 +9,7 @@ import type {
   CreateServiceTypeDto,
   CreateVehicleDto,
   DealershipDto,
+  ServiceBayDto,
   ServiceTypeDto,
   UpdateCustomerDto,
   UpdateServiceTypeDto,
@@ -187,6 +188,25 @@ export class ReferenceDataService {
   listDealerships(): Promise<DealershipDto[]> {
     return this.prisma.dealership.findMany({
       select: { id: true, name: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  async listServiceBays(dealershipId: string): Promise<ServiceBayDto[]> {
+    const dealership = await this.prisma.dealership.findUnique({
+      where: { id: dealershipId },
+      select: { id: true },
+    });
+    if (!dealership) {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        'RESOURCE_NOT_FOUND',
+        'Dealership was not found',
+      );
+    }
+    return this.prisma.serviceBay.findMany({
+      where: { dealershipId },
+      select: { id: true, label: true, dealershipId: true },
       orderBy: { id: 'asc' },
     });
   }

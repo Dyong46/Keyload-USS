@@ -3,8 +3,10 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 
+import { toast } from "@/components/ui/toast"
 import { AppointmentsView } from "@/features/scheduler/components/appointments-view"
 import { BookingReferenceState } from "@/features/scheduler/components/booking/booking-reference-state"
+import { manualTimeIsValid } from "@/features/scheduler/components/booking/booking-time"
 import { BookingView } from "@/features/scheduler/components/booking/booking-view"
 import { SchedulerShell } from "@/features/scheduler/components/scheduler-shell"
 import {
@@ -60,6 +62,10 @@ export function SchedulerApp({
   const [selectedTime, setSelectedTime] = React.useState("")
   const [technicianId, setTechnicianId] = React.useState("")
   const [bayId, setBayId] = React.useState("")
+  const [allocationMode, setAllocationMode] = React.useState<
+    "automatic" | "manual"
+  >("automatic")
+  const [manualTime, setManualTime] = React.useState("")
   const deferredSearch = useDebouncedValue(search.trim(), 300)
   const deferredCustomerSearch = useDebouncedValue(customerSearch.trim(), 250)
   const appointmentParams = React.useMemo(
@@ -120,21 +126,28 @@ export function SchedulerApp({
   )
   const {
     availabilityQuery,
+    manualTechniciansQuery,
+    manualServiceBaysQuery,
     confirmAppointment: createAppointment,
     isConfirming,
   } = useBooking({
     availabilityParams,
+    manualAllocationEnabled: allocationMode === "manual",
     onCreated: () => router.push("/"),
     onRecoverableConflict: () => {
       setSelectedTime("")
       setTechnicianId("")
       setBayId("")
+      setManualTime("")
     },
   })
   const availabilitySlots = availabilityQuery.data?.slots ?? []
   const selectedSlot = availabilitySlots.find(
     (slot) => slot.scheduledStart === selectedTime
   )
+  const manualScheduledStart = manualTimeIsValid(manualTime, totalDuration)
+    ? new Date(`${bookingDate}T${manualTime}:00+07:00`).toISOString()
+    : ""
   function startBooking() {
     if (initialView === "appointments") {
       router.push("/appointments/new")
@@ -151,6 +164,8 @@ export function SchedulerApp({
     setSelectedTime("")
     setTechnicianId("")
     setBayId("")
+    setAllocationMode("automatic")
+    setManualTime("")
     setView("booking")
   }
 
@@ -167,10 +182,22 @@ export function SchedulerApp({
     if (
       !selectedCustomer ||
       !selectedVehicle ||
-      !selectedSlot ||
+      (allocationMode === "automatic" && !selectedSlot) ||
+      (allocationMode === "manual" && !manualTime) ||
       !technicianId ||
       !bayId
     ) {
+      return
+    }
+    if (
+      allocationMode === "manual" &&
+      !manualTimeIsValid(manualTime, totalDuration)
+    ) {
+      toast.add({
+        type: "error",
+        title: "Invalid start time",
+        description: "Choose a 30-minute start that finishes by 17:00.",
+      })
       return
     }
     createAppointment({
@@ -178,7 +205,10 @@ export function SchedulerApp({
       vehicleId: selectedVehicle.id,
       dealershipId: dealership.id,
       serviceIds,
-      scheduledStart: selectedSlot.scheduledStart,
+      scheduledStart:
+        allocationMode === "manual"
+          ? manualScheduledStart
+          : selectedSlot!.scheduledStart,
       technicianId,
       serviceBayId: bayId,
     })
@@ -188,6 +218,8 @@ export function SchedulerApp({
     setSelectedTime("")
     setTechnicianId("")
     setBayId("")
+    setAllocationMode("automatic")
+    setManualTime("")
   }
 
   function selectSlot(slot: ApiAvailabilitySlot) {
@@ -200,8 +232,12 @@ export function SchedulerApp({
     selectedCustomer &&
     selectedVehicle &&
     serviceIds.length &&
-    selectedSlot?.technicians.some((item) => item.id === technicianId) &&
-    selectedSlot.serviceBays.some((item) => item.id === bayId)
+    (allocationMode === "automatic"
+      ? selectedSlot?.technicians.some((item) => item.id === technicianId) &&
+        selectedSlot.serviceBays.some((item) => item.id === bayId)
+      : manualTime &&
+        manualTechniciansQuery.data?.some((item) => item.id === technicianId) &&
+        manualServiceBaysQuery.data?.some((item) => item.id === bayId))
   )
 
   return (
@@ -308,6 +344,34 @@ export function SchedulerApp({
           availabilityPending={availabilityQuery.isPending}
           availabilityError={availabilityQuery.isError}
           retryAvailability={() => void availabilityQuery.refetch()}
+          availabilityEmptyReason={availabilityQuery.data?.emptyReason ?? null}
+          allocationMode={allocationMode}
+          enableManualAllocation={() => {
+            setAllocationMode("manual")
+            setSelectedTime("")
+            setTechnicianId("")
+            setBayId("")
+          }}
+          useSuggestedAllocation={() => {
+            setAllocationMode("automatic")
+            setManualTime("")
+            setTechnicianId("")
+            setBayId("")
+          }}
+          manualTime={manualTime}
+          setManualTime={setManualTime}
+          manualTechnicians={manualTechniciansQuery.data ?? []}
+          manualServiceBays={manualServiceBaysQuery.data ?? []}
+          manualResourcesPending={
+            manualTechniciansQuery.isPending || manualServiceBaysQuery.isPending
+          }
+          manualResourcesError={
+            manualTechniciansQuery.isError || manualServiceBaysQuery.isError
+          }
+          retryManualResources={() => {
+            void manualTechniciansQuery.refetch()
+            void manualServiceBaysQuery.refetch()
+          }}
         />
       )}
     </SchedulerShell>

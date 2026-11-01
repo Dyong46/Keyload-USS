@@ -2,8 +2,8 @@
 
 **Project:** Unified Service Scheduler (USS)  
 **Context:** Keyloop Technical Assessment — Scenario A  
-**Version:** 1.5 — Confirmed requirements and delivered administration scope  
-**Updated:** 2026-10-30  
+**Version:** 1.6 — Manual allocation and availability explanations
+**Updated:** 2026-10-31
 **Primary user:** Dealership staff  
 **Implementation scope:** Full backend with a demonstration frontend  
 **Language:** English
@@ -46,7 +46,7 @@ Items 1–3 originate from Keyloop; items 4–6 reflect confirmed project scope 
 | Resource-constrained request for a vehicle, service, dealership, and time | FR-02, FR-03, FR-05 | TC-01, TC-09, TC-25, TC-33, TC-37 |
 | Full-duration availability of a bay and a qualified technician before confirmation | FR-04, FR-06, FR-10 | TC-02–08, TC-16–17, TC-34–36 |
 | Persistent appointment linking customer, vehicle, technician, and bay | FR-05, FR-08, NFR-01, NFR-04 | TC-01, TC-13, TC-26 |
-| Selected project extensions | FR-07, FR-09, FR-11–14; vehicle rule in FR-10 | TC-10–12, TC-18–24, TC-27–32, TC-38–42 |
+| Selected project extensions | FR-07, FR-09, FR-11–15; vehicle rule in FR-10 | TC-10–12, TC-18–24, TC-27–32, TC-38–46 |
 
 Validation IDs identify expected evidence, not completed tests. The full requirement text remains authoritative; examples are not an exhaustive substitute for its acceptance criteria.
 
@@ -70,6 +70,7 @@ Validation IDs identify expected evidence, not completed tests. The full require
 | F12 | Recognize repeated booking requests | Confirmed |
 | F13 | Create and update customer and service-type reference records | Confirmed extension |
 | F14 | Create/update technicians and maintain Technician–ServiceType qualifications | Confirmed extension |
+| F15 | Explain empty availability and allow staff to enter an exact manual allocation | Confirmed extension |
 
 All capabilities above are in the agreed delivery scope. Source labels distinguish assessment obligations from project extensions; they do not make confirmed extensions optional.
 
@@ -121,15 +122,17 @@ No login is required. A predefined demo staff identity is used. The demo support
 6. Staff select a start time.
 7. The system suggests one technician qualified for every selected service and one bay, both available for the entire combined duration.
 8. Staff may replace either suggestion with another eligible resource available for the full duration.
-9. Staff confirm the booking.
-10. The backend revalidates the vehicle, selected resources, time, and qualification, and persists the appointment atomically.
-11. The system returns the confirmed appointment, including its assigned resources.
+9. Staff may switch to manual allocation at any time after selecting the vehicle and services to enter an exact grid time, technician, and bay. If no slot is suggested, the system also explains the primary reason.
+10. Staff confirm the booking.
+11. The backend revalidates the vehicle, selected resources, time, and qualification, and persists the appointment atomically. Manual allocation does not bypass these checks.
+12. The system returns the confirmed appointment, including its assigned resources.
 
 Availability results and resource suggestions do not reserve resources. A stale selection must not result in a conflicting appointment. If a selected resource is no longer available, the system reports the conflict rather than silently assigning a different resource.
 
 ## 4.2 Alternate flows
 
 - No eligible technician or no available bay: do not offer the affected start time.
+- No suggested slot: return a structured reason; manual allocation remains available.
 - Vehicle already booked for an overlapping interval: do not offer that interval for the vehicle and reject a conflicting confirmation.
 - Availability changes before confirmation: reject the conflicting booking and let staff choose again.
 - Invalid customer, vehicle, dealership, service, or resource selection: reject the request without persisting a partial appointment.
@@ -182,6 +185,8 @@ Staff may complete an appointment at or after its scheduled start without first 
 - AC06: Adjacent allocations may share an end/start boundary without conflicting.
 - AC07: Displaying a time does not reserve it; confirmation performs a fresh check.
 - AC08: Availability reflects cancellation, early completion, and scheduled release according to Section 8.
+- AC09: When no slots are returned, the response identifies one deterministic primary reason: no commonly qualified technician, no configured bay, duration longer than the operating day, no remaining start, vehicle unavailable for every eligible start, or insufficient technician/bay capacity.
+- AC10: When slots are returned, the empty reason is null.
 
 ## FR-05 — Create Appointment
 
@@ -289,6 +294,17 @@ Staff may complete an appointment at or after its scheduled start without first 
 - AC04: Staff can attach or detach individual Technician–ServiceType qualifications, and repeating the same operation is safe.
 - AC05: Qualification changes affect future availability and do not rewrite existing confirmed appointments.
 
+## FR-15 — Manual Allocation
+
+**Source:** Confirmed project decision.
+
+- AC01: After selecting a vehicle and at least one service, staff can toggle manual allocation whether or not suggested slots exist.
+- AC02: Staff can enter a 30-minute-boundary start time and select any technician and service bay belonging to the selected dealership.
+- AC03: The interface identifies how many selected services each listed technician is currently qualified to perform; it does not silently change the staff selection.
+- AC04: Manual allocation uses the same appointment creation operation and request-identity behavior as suggested allocation.
+- AC05: Confirmation still validates customer/vehicle ownership, dealership membership, technician qualification for every service, opening hours, the 15-minute rule, and full-duration technician, bay, and vehicle availability.
+- AC06: An invalid manual allocation is rejected without creating a partial appointment or bypassing database overlap constraints.
+
 # 6. Business Rules
 
 | ID | Rule |
@@ -316,6 +332,8 @@ Staff may complete an appointment at or after its scheduled start without first 
 | BR-21 | Scheduled end releases resources even without explicit completion. |
 | BR-22 | No manual Start Service action is required. |
 | BR-23 | Repeating the same successful booking operation returns the existing appointment. |
+| BR-24 | Manual allocation changes who chooses the requested time and resources; it does not weaken booking invariants. |
+| BR-25 | Empty availability includes a deterministic primary reason; it remains a successful read response rather than a booking reservation or failure. |
 
 # 7. Appointment Lifecycle
 
@@ -458,12 +476,16 @@ These are requirement-level examples rather than a detailed test procedure.
 | TC-40 | Create a technician with two valid initial service qualifications | Technician and both associations are committed atomically |
 | TC-41 | Attach or detach the same technician qualification twice | Repeat-safe; final association state is correct |
 | TC-42 | Remove a qualification from a technician with an existing confirmed appointment | Existing appointment remains unchanged; technician is not eligible for future bookings requiring that service |
+| TC-43 | Availability has no commonly qualified technician | Empty slots with `NO_QUALIFIED_TECHNICIAN` |
+| TC-44 | Open manual allocation after empty availability | Staff can enter an exact grid time and select dealership technician/bay records |
+| TC-45 | Manually select an unqualified or occupied technician | Confirmation rejected; no appointment created |
+| TC-46 | Manually select valid exact resources | Same atomic confirmation and persisted associations as suggested allocation |
 
 # 12. Decisions, Constraints & Dependencies
 
 ## 12.1 Confirmed decisions
 
-Staff-assisted booking; no login; configured demo master data; selectable sample dealerships; customer/service/technician administration; available-time selection; resource suggestions with staff override; Technician–ServiceType qualification; all bays compatible; one or more sequential services with one technician and one bay per appointment; summed fixed service durations; daily 08:00–17:00 hours; 30-minute starts; Vietnam timezone; cancellation while not completed; explicit completion without Start action; early and scheduled resource release; cross-dealership vehicle conflict prevention; repeated booking recognition; repeat-safe cancellation; English PRD; PostgreSQL with Prisma.
+Staff-assisted booking; no login; configured demo master data; selectable sample dealerships; customer/service/technician administration; available-time selection with structured empty reasons; resource suggestions plus exact manual allocation without bypassing validation; Technician–ServiceType qualification; all bays compatible; one or more sequential services with one technician and one bay per appointment; summed fixed service durations; daily 08:00–17:00 hours; 30-minute starts; Vietnam timezone; cancellation while not completed; explicit completion without Start action; early and scheduled resource release; cross-dealership vehicle conflict prevention; repeated booking recognition; repeat-safe cancellation; English PRD; PostgreSQL with Prisma.
 
 The initial stack direction specifies NestJS, Next.js, shadcn/ui, and Docker Compose for the database.
 
@@ -533,3 +555,4 @@ No unresolved material requirements questions or TBD requirements remain in this
 | 1.3 | 2026-10-29 | Prepared the confirmed requirements baseline, added assessment traceability, and clarified availability examples and retrieval of existing booking results. Existing requirement IDs retained. |
 | 1.4 | 2026-10-29 | Added unique normalized customer phone and vehicle registration lookup requirements for the staff booking workflow. |
 | 1.5 | 2026-10-30 | Recorded delivered customer/service/technician administration and qualification-management scope; added FR-13–14 and TC-38–42. |
+| 1.6 | 2026-10-31 | Added structured empty-availability reasons and manual allocation while retaining all booking validation; added FR-15 and TC-43–46. |

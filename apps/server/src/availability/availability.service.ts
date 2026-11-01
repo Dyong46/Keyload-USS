@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { ApiException } from '../common/api-exception.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type {
+  AvailabilityEmptyReason,
   AvailabilityQueryDto,
   AvailabilityResponseDto,
   AvailabilitySlotDto,
@@ -123,6 +124,8 @@ export class AvailabilityService {
     });
 
     const slots: AvailabilitySlotDto[] = [];
+    let consideredStarts = 0;
+    let vehicleBlockedStarts = 0;
     for (
       let scheduledStart = open;
       scheduledStart < close;
@@ -130,6 +133,7 @@ export class AvailabilityService {
     ) {
       const scheduledEnd = addMinutes(scheduledStart, totalDurationMinutes);
       if (scheduledStart < generatedAt || scheduledEnd > close) continue;
+      consideredStarts += 1;
 
       const overlapping = occupancies.filter((occupancy) =>
         overlaps(occupancy, scheduledStart, scheduledEnd),
@@ -137,6 +141,7 @@ export class AvailabilityService {
       if (
         overlapping.some((occupancy) => occupancy.vehicleId === query.vehicleId)
       ) {
+        vehicleBlockedStarts += 1;
         continue;
       }
 
@@ -166,6 +171,24 @@ export class AvailabilityService {
       });
     }
 
+    let emptyReason: AvailabilityEmptyReason | null = null;
+    if (!slots.length) {
+      const operatingMinutes = (close.getTime() - open.getTime()) / 60_000;
+      if (totalDurationMinutes > operatingMinutes) {
+        emptyReason = 'DURATION_EXCEEDS_OPERATING_HOURS';
+      } else if (!technicians.length) {
+        emptyReason = 'NO_QUALIFIED_TECHNICIAN';
+      } else if (!serviceBays.length) {
+        emptyReason = 'NO_SERVICE_BAY';
+      } else if (!consideredStarts) {
+        emptyReason = 'NO_REMAINING_START_TIME';
+      } else if (vehicleBlockedStarts === consideredStarts) {
+        emptyReason = 'VEHICLE_UNAVAILABLE';
+      } else {
+        emptyReason = 'NO_RESOURCE_CAPACITY';
+      }
+    }
+
     return {
       dealershipId: query.dealershipId,
       vehicleId: query.vehicleId,
@@ -175,6 +198,7 @@ export class AvailabilityService {
       services,
       totalDurationMinutes,
       slots,
+      emptyReason,
     };
   }
 }

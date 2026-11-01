@@ -90,6 +90,17 @@ export class AvailabilitySlotDto {
   suggestedServiceBayId!: string;
 }
 
+export const availabilityEmptyReasons = [
+  'NO_QUALIFIED_TECHNICIAN',
+  'NO_SERVICE_BAY',
+  'DURATION_EXCEEDS_OPERATING_HOURS',
+  'NO_REMAINING_START_TIME',
+  'VEHICLE_UNAVAILABLE',
+  'NO_RESOURCE_CAPACITY',
+] as const;
+
+export type AvailabilityEmptyReason = (typeof availabilityEmptyReasons)[number];
+
 export class AvailabilityResponseDto {
   @ApiProperty({ format: 'uuid' })
   dealershipId!: string;
@@ -114,4 +125,11 @@ export class AvailabilityResponseDto {
 
   @ApiProperty({ type: [AvailabilitySlotDto] })
   slots!: AvailabilitySlotDto[];
+
+  @ApiProperty({
+    enum: availabilityEmptyReasons,
+    nullable: true,
+    description: 'Reason slots is empty; null when at least one slot exists.',
+  })
+  emptyReason!: AvailabilityEmptyReason | null;
 }

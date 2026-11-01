@@ -120,6 +120,14 @@ export type ApiAvailableServiceBay = {
   dealershipId: string
 }
 
+export type ApiAvailabilityEmptyReason =
+  | "NO_QUALIFIED_TECHNICIAN"
+  | "NO_SERVICE_BAY"
+  | "DURATION_EXCEEDS_OPERATING_HOURS"
+  | "NO_REMAINING_START_TIME"
+  | "VEHICLE_UNAVAILABLE"
+  | "NO_RESOURCE_CAPACITY"
+
 export type ApiAvailabilitySlot = {
   scheduledStart: string
   scheduledEnd: string
@@ -145,6 +153,7 @@ export type ApiAvailability = {
   services: ApiServiceType[]
   totalDurationMinutes: number
   slots: ApiAvailabilitySlot[]
+  emptyReason: ApiAvailabilityEmptyReason | null
 }
 
 export type CreateAppointmentRequest = {
@@ -180,15 +189,17 @@ export const schedulerApi = {
     ),
   dealerships: (signal?: AbortSignal) =>
     api.get<ApiDealership[]>("/dealerships", { signal }),
+  serviceBays: (dealershipId: string, signal?: AbortSignal) =>
+    api.get<ApiAvailableServiceBay[]>(
+      `/dealerships/${encodeURIComponent(dealershipId)}/service-bays`,
+      { signal }
+    ),
   serviceTypes: (signal?: AbortSignal) =>
     api.get<ApiServiceType[]>("/service-types", { signal }),
   createServiceType: (body: CreateServiceTypeRequest) =>
     api.post<ApiServiceType>("/service-types", body),
   updateServiceType: (id: string, body: UpdateServiceTypeRequest) =>
-    api.patch<ApiServiceType>(
-      `/service-types/${encodeURIComponent(id)}`,
-      body
-    ),
+    api.patch<ApiServiceType>(`/service-types/${encodeURIComponent(id)}`, body),
   technicians: (dealershipId?: string, signal?: AbortSignal) =>
     api.get<ApiTechnicianManagement[]>("/technicians", {
       signal,
@@ -239,6 +250,9 @@ export const schedulerQueryKeys = {
   vehicles: (customerId: string) =>
     ["scheduler", "customers", customerId, "vehicles"] as const,
   dealerships: ["scheduler", "dealerships"] as const,
+  serviceBaysRoot: ["scheduler", "service-bays"] as const,
+  serviceBays: (dealershipId: string) =>
+    [...schedulerQueryKeys.serviceBaysRoot, { dealershipId }] as const,
   serviceTypes: ["scheduler", "service-types"] as const,
   techniciansRoot: ["scheduler", "technicians"] as const,
   technicians: (dealershipId?: string) =>

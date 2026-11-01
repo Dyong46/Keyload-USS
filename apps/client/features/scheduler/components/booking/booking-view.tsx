@@ -49,12 +49,13 @@ export function BookingView(props: BookingViewProps) {
 }
 
 function BookingSummary(props: BookingViewProps) {
-  const technician = props.selectedSlot?.technicians.find(
-    (item) => item.id === props.technicianId
-  )
-  const bay = props.selectedSlot?.serviceBays.find(
-    (item) => item.id === props.bayId
-  )
+  const technician =
+    props.selectedSlot?.technicians.find(
+      (item) => item.id === props.technicianId
+    ) ?? props.manualTechnicians.find((item) => item.id === props.technicianId)
+  const bay =
+    props.selectedSlot?.serviceBays.find((item) => item.id === props.bayId) ??
+    props.manualServiceBays.find((item) => item.id === props.bayId)
 
   return (
     <aside className="h-fit rounded-xl border bg-white p-4 xl:sticky xl:top-20">
@@ -99,8 +100,8 @@ function BookingSummary(props: BookingViewProps) {
           icon={CalendarDays}
           label="Schedule"
           value={
-            props.selectedSlot
-              ? `${props.selectedDate} · ${vietnamTime(props.selectedSlot.scheduledStart)}`
+            props.selectedSlot || props.manualTime
+              ? `${props.selectedDate} · ${props.selectedSlot ? vietnamTime(props.selectedSlot.scheduledStart) : props.manualTime}`
               : "Not selected"
           }
           detail={

@@ -2,7 +2,7 @@
 
 **Updated:** 31 October 2026
 **Status:** Product implementation complete; submission verification in progress  
-**Requirements:** [PRD v1.5](PRD.md)
+**Requirements:** [PRD v1.6](PRD.md)
 
 This file records delivered work and the remaining steps before submission. Checked items have implementation or verification evidence in the repository; unchecked items are not claimed complete.
 

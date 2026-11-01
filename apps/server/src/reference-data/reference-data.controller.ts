@@ -23,6 +23,8 @@ import {
   CreateServiceTypeDto,
   CreateVehicleDto,
   DealershipDto,
+  DealershipIdParams,
+  ServiceBayDto,
   ServiceTypeDto,
   ServiceTypeIdParams,
   UpdateCustomerDto,
@@ -109,6 +111,20 @@ export class ReferenceDataController {
   @ApiOkResponse({ type: DealershipDto, isArray: true })
   listDealerships(): Promise<DealershipDto[]> {
     return this.referenceData.listDealerships();
+  }
+
+  @Get('dealerships/:id/service-bays')
+  @ApiTags('Dealerships')
+  @ApiOperation({
+    operationId: 'listDealershipServiceBays',
+    summary: 'List service bays at a dealership',
+  })
+  @ApiOkResponse({ type: ServiceBayDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Dealership was not found.' })
+  listDealershipServiceBays(
+    @Param() params: DealershipIdParams,
+  ): Promise<ServiceBayDto[]> {
+    return this.referenceData.listServiceBays(params.id);
   }
 
   @Get('service-types')

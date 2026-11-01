@@ -18,6 +18,12 @@ export class CustomerIdParams {
   id!: string;
 }
 
+export class DealershipIdParams {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  id!: string;
+}
+
 export class ServiceTypeIdParams {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
@@ -131,6 +137,17 @@ export class DealershipDto {
 
   @ApiProperty()
   name!: string;
+}
+
+export class ServiceBayDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  dealershipId!: string;
 }
 
 export class ServiceTypeDto {

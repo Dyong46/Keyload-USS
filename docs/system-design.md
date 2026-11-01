@@ -3,7 +3,7 @@
 **Scenario:** A — Service Scheduler  
 **Updated:** 31 October 2026
 **Status:** Implemented assessment solution  
-**Requirements:** [PRD v1.5](PRD.md)  
+**Requirements:** [PRD v1.6](PRD.md)
 **Interface:** [OpenAPI](openapi.yaml)
 
 ## 1. Purpose and scope
@@ -94,6 +94,8 @@ Important persistence rules:
 5. It generates 30-minute starts between 08:00 and 17:00 Asia/Ho_Chi_Minh.
 6. It removes past starts, starts ending after close, vehicle conflicts across dealerships, and technician/bay conflicts.
 7. Each remaining slot returns all eligible technicians and bays plus the first IDs as stable suggestions.
+
+When no slot remains, the response includes a deterministic `emptyReason`. The UI can then explain whether the limiting factor is qualification, bay configuration, operating time, vehicle occupancy, or resource capacity. Manual allocation is always available after the vehicle and services are selected, allowing staff to enter an exact time and resources; confirmation still follows the booking flow below and never bypasses qualification or overlap checks.
 
 Availability is a read-only snapshot and never reserves a resource. The response uses `Cache-Control: no-store`.
 
