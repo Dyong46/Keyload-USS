@@ -62,6 +62,11 @@ export type CreateTechnicianRequest = {
   serviceTypeIds: string[]
 }
 
+export type UpdateTechnicianRequest = Pick<
+  CreateTechnicianRequest,
+  "name" | "dealershipId"
+>
+
 export type ApiAppointmentStatus = "CONFIRMED" | "COMPLETED" | "CANCELLED"
 
 export type ApiAppointment = {
@@ -207,10 +212,10 @@ export const schedulerApi = {
     }),
   createTechnician: (body: CreateTechnicianRequest) =>
     api.post<ApiTechnicianManagement>("/technicians", body),
-  updateTechnician: (id: string, name: string) =>
+  updateTechnician: (id: string, body: UpdateTechnicianRequest) =>
     api.patch<ApiTechnicianManagement>(
       `/technicians/${encodeURIComponent(id)}`,
-      { name }
+      body
     ),
   attachTechnicianServiceType: (technicianId: string, serviceTypeId: string) =>
     api.put<ApiTechnicianManagement>(

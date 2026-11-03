@@ -290,7 +290,7 @@ Staff may complete an appointment at or after its scheduled start without first 
 
 - AC01: Staff can list all technicians or filter them by dealership.
 - AC02: Staff can create a technician at a dealership with zero or more initial service qualifications.
-- AC03: Staff can update a technician's name; names remain unique within a dealership.
+- AC03: Staff can update a technician's name and dealership; names remain unique within a dealership. Existing appointments retain their booked dealership, while future availability uses the technician's current dealership.
 - AC04: Staff can attach or detach individual Technician–ServiceType qualifications, and repeating the same operation is safe.
 - AC05: Qualification changes affect future availability and do not rewrite existing confirmed appointments.
 

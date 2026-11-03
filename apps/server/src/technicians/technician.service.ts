@@ -101,13 +101,28 @@ export class TechnicianService {
     technicianId: string,
     input: UpdateTechnicianDto,
   ): Promise<TechnicianManagementDto> {
+    if (input.dealershipId) {
+      const dealership = await this.prisma.dealership.findUnique({
+        where: { id: input.dealershipId },
+        select: { id: true },
+      });
+      if (!dealership) this.throwNotFound();
+    }
+
     try {
       const technician = await this.prisma.technician.update({
         where: { id: technicianId },
-        data: { name: input.name.trim() },
+        data: {
+          name: input.name.trim(),
+          dealershipId: input.dealershipId,
+        },
         select: technicianSelect,
       });
-      this.logger.log({ event: 'technician.updated', technicianId });
+      this.logger.log({
+        event: 'technician.updated',
+        technicianId,
+        dealershipId: technician.dealership.id,
+      });
       return toDto(technician);
     } catch (error) {
       this.throwWriteError(error);

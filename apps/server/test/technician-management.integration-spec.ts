@@ -11,6 +11,7 @@ describe('technician management API (PostgreSQL integration)', () => {
   let createdTechnicianId: string | undefined;
   const technicianId = '90000005-0000-4000-8000-000000000001';
   const dealershipId = '00000003-0000-4000-8000-000000000001';
+  const targetDealershipId = '00000003-0000-4000-8000-000000000002';
   const oilServiceId = '00000004-0000-4000-8000-000000000001';
   const tireServiceId = '00000004-0000-4000-8000-000000000002';
 
@@ -102,25 +103,60 @@ describe('technician management API (PostgreSQL integration)', () => {
     );
   });
 
-  it('updates a technician name and rejects dealership-local duplicates', async () => {
+  it('updates a technician name and dealership', async () => {
     const updated = await request(app.getHttpServer())
       .patch(`/technicians/${technicianId}`)
-      .send({ name: 'Updated Integration Technician' })
+      .send({
+        name: 'Updated Integration Technician',
+        dealershipId: targetDealershipId,
+      })
       .expect(200);
     expect(updated.body).toMatchObject({
       id: technicianId,
       name: 'Updated Integration Technician',
+      dealership: { id: targetDealershipId },
     });
 
+    const oldDealership = await request(app.getHttpServer())
+      .get('/technicians')
+      .query({ dealershipId })
+      .expect(200);
+    expect(oldDealership.body).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: technicianId })]),
+    );
+
+    const targetDealership = await request(app.getHttpServer())
+      .get('/technicians')
+      .query({ dealershipId: targetDealershipId })
+      .expect(200);
+    expect(targetDealership.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: technicianId,
+          dealership: expect.objectContaining({ id: targetDealershipId }),
+        }),
+      ]),
+    );
+  });
+
+  it('rejects dealership-local duplicates and missing resources', async () => {
     const duplicate = await request(app.getHttpServer())
       .patch(`/technicians/${technicianId}`)
-      .send({ name: 'An Nguyen' })
+      .send({ name: 'Dung Pham', dealershipId: targetDealershipId })
       .expect(409);
     expect(duplicate.body.code).toBe('RESOURCE_CONFLICT');
 
     await request(app.getHttpServer())
+      .patch(`/technicians/${technicianId}`)
+      .send({
+        name: 'Updated Integration Technician',
+        dealershipId: '90000003-0000-4000-8000-000000000099',
+      })
+      .expect(404);
+
+    await request(app.getHttpServer())
       .patch('/technicians/90000005-0000-4000-8000-000000000099')
-      .send({ name: 'Missing' })
+      .send({ name: 'Missing', dealershipId: targetDealershipId })
       .expect(404);
   });
 

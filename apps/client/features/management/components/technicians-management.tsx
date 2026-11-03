@@ -39,12 +39,14 @@ import {
   schedulerQueryKeys,
   type ApiTechnicianManagement,
   type CreateTechnicianRequest,
+  type UpdateTechnicianRequest,
 } from "@/features/scheduler/api/scheduler-api"
 
 const ALL_DEALERSHIPS = "all"
 
 const technicianSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
+  dealershipId: z.string().uuid("Select a dealership"),
 })
 
 const createTechnicianSchema = technicianSchema.extend({
@@ -90,12 +92,17 @@ export function TechniciansManagement() {
     onError: (error) => showSaveError("Could not create technician", error),
   })
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      schedulerApi.updateTechnician(id, name),
+    mutationFn: ({ id, body }: { id: string; body: UpdateTechnicianRequest }) =>
+      schedulerApi.updateTechnician(id, body),
     onSuccess: (technician) => {
-      updateTechnicianCaches(queryClient, technician)
+      void queryClient.invalidateQueries({
+        queryKey: schedulerQueryKeys.techniciansRoot,
+      })
       void queryClient.invalidateQueries({
         queryKey: schedulerQueryKeys.appointmentsRoot,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: schedulerQueryKeys.availabilityRoot,
       })
       setEditingTechnician(undefined)
       toast.add({
@@ -277,10 +284,11 @@ export function TechniciansManagement() {
       {editingTechnician && (
         <TechnicianEditor
           technician={editingTechnician}
+          dealerships={dealershipsQuery.data ?? []}
           pending={updateMutation.isPending}
           onClose={() => setEditingTechnician(undefined)}
-          onSave={(name) =>
-            updateMutation.mutateAsync({ id: editingTechnician.id, name })
+          onSave={(body) =>
+            updateMutation.mutateAsync({ id: editingTechnician.id, body })
           }
         />
       )}
@@ -326,6 +334,7 @@ function CreateTechnicianEditor({
   onClose: () => void
   onSave: (values: CreateTechnicianRequest) => Promise<ApiTechnicianManagement>
 }) {
+  const [serviceSearch, setServiceSearch] = React.useState("")
   const form = useForm<z.infer<typeof createTechnicianSchema>>({
     resolver: zodResolver(createTechnicianSchema),
     defaultValues: {
@@ -338,10 +347,16 @@ function CreateTechnicianEditor({
     label: dealership.name,
     value: dealership.id,
   }))
+  const normalizedServiceSearch = serviceSearch.trim().toLowerCase()
+  const filteredServiceTypes = serviceTypes.filter(
+    ({ name }) =>
+      !normalizedServiceSearch ||
+      name.toLowerCase().includes(normalizedServiceSearch)
+  )
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create technician</DialogTitle>
           <DialogDescription>
@@ -404,10 +419,19 @@ function CreateTechnicianEditor({
           </div>
           <fieldset className="space-y-1.5">
             <legend className="text-sm font-medium">
-              Initial service qualifications
+              Initial service qualifications ({serviceTypes.length})
             </legend>
-            <div className="max-h-52 overflow-auto rounded-lg border">
-              {serviceTypes.map((serviceType) => (
+            <div className="relative">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={serviceSearch}
+                onChange={(event) => setServiceSearch(event.target.value)}
+                placeholder="Search service types"
+                className="pl-9"
+              />
+            </div>
+            <div className="h-80 overflow-y-auto overscroll-contain rounded-lg border">
+              {filteredServiceTypes.map((serviceType) => (
                 <label
                   key={serviceType.id}
                   className="flex cursor-pointer items-center gap-3 border-b px-3 py-2.5 last:border-b-0 hover:bg-slate-50"
@@ -426,9 +450,11 @@ function CreateTechnicianEditor({
                   </span>
                 </label>
               ))}
-              {!serviceTypes.length && (
+              {!filteredServiceTypes.length && (
                 <p className="p-4 text-center text-sm text-slate-500">
-                  No service type available.
+                  {serviceTypes.length
+                    ? "No matching service type."
+                    : "No service type available."}
                 </p>
               )}
             </div>
@@ -450,31 +476,42 @@ function CreateTechnicianEditor({
 
 function TechnicianEditor({
   technician,
+  dealerships,
   pending,
   onClose,
   onSave,
 }: {
   technician: ApiTechnicianManagement
+  dealerships: Awaited<ReturnType<typeof schedulerApi.dealerships>>
   pending: boolean
   onClose: () => void
-  onSave: (name: string) => Promise<ApiTechnicianManagement>
+  onSave: (body: UpdateTechnicianRequest) => Promise<ApiTechnicianManagement>
 }) {
   const form = useForm<z.infer<typeof technicianSchema>>({
     resolver: zodResolver(technicianSchema),
-    defaultValues: { name: technician.name },
+    defaultValues: {
+      name: technician.name,
+      dealershipId: technician.dealership.id,
+    },
   })
+  const dealershipOptions = dealerships.map((dealership) => ({
+    label: dealership.name,
+    value: dealership.id,
+  }))
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Update technician</DialogTitle>
-          <DialogDescription>{technician.dealership.name}</DialogDescription>
+          <DialogDescription>
+            Update the technician name and dealership.
+          </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
-          onSubmit={form.handleSubmit(async ({ name }) => {
+          onSubmit={form.handleSubmit(async (values) => {
             try {
-              await onSave(name)
+              await onSave(values)
             } catch {
               return
             }
@@ -489,11 +526,49 @@ function TechnicianEditor({
               </span>
             )}
           </label>
+          <div className="block space-y-1.5 text-sm font-medium">
+            <span>Dealership</span>
+            <Controller
+              control={form.control}
+              name="dealershipId"
+              render={({ field }) => (
+                <Select
+                  items={dealershipOptions}
+                  value={field.value || null}
+                  onValueChange={(value) => field.onChange(value ?? "")}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    aria-invalid={Boolean(form.formState.errors.dealershipId)}
+                  >
+                    <SelectValue placeholder="Select dealership" />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    <SelectGroup>
+                      {dealershipOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {form.formState.errors.dealershipId?.message && (
+              <span className="block text-xs text-red-600">
+                {form.formState.errors.dealershipId.message}
+              </span>
+            )}
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button
+              type="submit"
+              disabled={pending || !dealershipOptions.length}
+            >
               {pending && <LoaderCircle className="animate-spin" />} Save
               changes
             </Button>
@@ -529,12 +604,13 @@ function QualificationEditor({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Service qualifications</DialogTitle>
           <DialogDescription>
             {technician.name} · {technician.dealership.name}. Changes affect
-            future allocation; confirmed appointments remain unchanged.
+            future allocation; confirmed appointments remain unchanged.{" "}
+            {serviceTypes.length} services available.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
@@ -546,7 +622,7 @@ function QualificationEditor({
             className="pl-9"
           />
         </div>
-        <div className="max-h-80 overflow-auto rounded-lg border">
+        <div className="h-80 overflow-y-auto overscroll-contain rounded-lg border">
           {loadingServices ? (
             <div className="flex justify-center gap-2 p-8 text-sm text-slate-500">
               <LoaderCircle className="size-4 animate-spin" /> Loading services…

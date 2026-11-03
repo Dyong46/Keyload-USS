@@ -33,7 +33,7 @@ export class TechnicianServiceTypeParamsDto extends TechnicianIdParamsDto {
   serviceTypeId!: string;
 }
 
-export class UpdateTechnicianDto {
+class TechnicianNameDto {
   @ApiProperty({ minLength: 1, maxLength: 100 })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
@@ -43,7 +43,14 @@ export class UpdateTechnicianDto {
   name!: string;
 }
 
-export class CreateTechnicianDto extends UpdateTechnicianDto {
+export class UpdateTechnicianDto extends TechnicianNameDto {
+  @ApiProperty({ required: false, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  dealershipId?: string;
+}
+
+export class CreateTechnicianDto extends TechnicianNameDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   dealershipId!: string;

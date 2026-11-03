@@ -82,7 +82,8 @@ Important persistence rules:
 - A technician name is unique within a dealership.
 - Technician qualifications are direct join rows; there is no separate Skill entity.
 - Appointment services store name and duration snapshots, so later service-type edits do not rewrite history.
-- Composite foreign keys enforce that the selected vehicle belongs to the customer and that technician/bay belong to the appointment dealership.
+- Composite foreign keys enforce that the selected vehicle belongs to the customer and the bay belongs to the appointment dealership.
+- Booking validates that the technician currently belongs to the selected dealership. Appointments reference the technician independently so historical bookings retain their original dealership if the technician later transfers.
 - Appointment request keys are unique and retained for the appointment lifetime.
 
 ## 5. Availability flow
